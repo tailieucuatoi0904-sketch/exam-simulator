@@ -32,7 +32,32 @@ export default function QuestionManagementScreen() {
   }, []);
 
   const handleImported = async (newQuestions: Question[]) => {
-    const updatedPool = [...questions, ...newQuestions];
+    // Kiểm tra trùng lặp dựa trên nội dung câu hỏi (so sánh 100 ký tự đầu, bỏ khoảng trắng thừa)
+    const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, ' ').substring(0, 100);
+    const existingTexts = new Set(questions.map(q => normalize(q.questionText)));
+    
+    const uniqueNew = newQuestions.filter(q => {
+      const key = normalize(q.questionText);
+      if (existingTexts.has(key)) return false;
+      existingTexts.add(key); // Tránh trùng trong chính batch import
+      return true;
+    });
+
+    const duplicateCount = newQuestions.length - uniqueNew.length;
+    
+    if (duplicateCount > 0) {
+      Alert.alert(
+        'Phát hiện trùng lặp',
+        `Đã bỏ qua ${duplicateCount} câu hỏi trùng lặp.\nThêm mới: ${uniqueNew.length} câu hỏi.`
+      );
+    }
+
+    if (uniqueNew.length === 0) {
+      Alert.alert('Thông báo', 'Tất cả câu hỏi đã tồn tại trong hệ thống. Không có câu hỏi mới nào được thêm.');
+      return;
+    }
+
+    const updatedPool = [...questions, ...uniqueNew];
     setQuestions(updatedPool);
     await firebaseService.saveQuestionsToCloud(updatedPool);
     examStorage.saveCustomQuestions(updatedPool.filter(q => q.id.startsWith('imported')));
@@ -57,11 +82,14 @@ export default function QuestionManagementScreen() {
     ]);
   };
 
-  // Tính toán thống kê
+  // Tính toán thống kê (case-insensitive, hỗ trợ cả "Business" và "Business Environment")
   const stats = {
-    people: questions.filter(q => q.domain === 'People').length,
-    process: questions.filter(q => q.domain === 'Process').length,
-    business: questions.filter(q => q.domain === 'Business Environment').length,
+    people: questions.filter(q => q.domain.trim().toLowerCase() === 'people').length,
+    process: questions.filter(q => q.domain.trim().toLowerCase() === 'process').length,
+    business: questions.filter(q => {
+      const d = q.domain.trim().toLowerCase();
+      return d === 'business' || d === 'business environment';
+    }).length,
   };
 
   const handleUpdateQuestion = async (updated: Question) => {
