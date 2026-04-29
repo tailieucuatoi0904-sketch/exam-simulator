@@ -2,80 +2,119 @@
 
 Đây là tài liệu đặc tả nghiệp vụ đã được nâng cấp dựa trên cấu trúc đề thi PMI 2026, chuyển hướng từ một ứng dụng thi thử đơn thuần sang một **Hệ thống Ôn luyện PMP toàn diện**.
 
-## Cần Bạn Duyệt (User Review Required)
-> [!IMPORTANT]
-> **Về Cấu trúc Dữ liệu Câu hỏi:** 
-> Để ứng dụng có thể tạo bài thi theo đúng Domain hoặc ECO Task, file Excel import của Admin BẮT BUỘC phải có thêm 2 cột mới là `Domain` và `ECO_Task`. 
-> *(Ví dụ: Cột Domain ghi "People", cột ECO_Task ghi "Task 1: Manage conflict").* Bạn có đồng ý với cấu trúc Excel này không?
-> 
-> **Về Thời gian đếm ngược (Timer):**
-> Khi học viên tự tạo bài thi ngẫu nhiên (ví dụ 50 câu), hệ thống sẽ tính thời gian như thế nào? (Ví dụ: Trung bình 1.2 phút/câu => 50 câu = 60 phút, hay để học viên tự chọn thời gian?). Bạn cho ý kiến ở phần này nhé!
+## Thông tin Triển khai
+- **Hosting:** https://pmp-exam-simulator-7d8dd.web.app
+- **GitHub:** https://github.com/tailieucuatoi0904-sketch/exam-simulator
+- **Firebase Project:** `pmp-exam-simulator-7d8dd`
+- **Tech Stack:** React Native (Expo Router) + Firebase Realtime Database + Firebase Auth
+- **Trạng thái:** ✅ Đã triển khai Production — Đang vận hành
 
 ---
 
-## 1. Phân hệ Quản trị viên (Admin Role)
-*(Vẫn giữ nguyên chức năng Quản lý Học viên và Quản lý Câu hỏi, nhưng cấu trúc Import Excel sẽ thay đổi).*
+## 1. Phân hệ Quản trị viên (Admin Role) ✅
 
-### 1.1. Cấu trúc Import Câu hỏi Mới (Excel Template)
-Admin khi import câu hỏi cần phân loại cực kỳ chi tiết theo chuẩn PMI 2026:
-- **Domain (Lĩnh vực):** People, Process, Business Environment.
-- **ECO Task:** Có tổng cộng 26 ECO Tasks (Ví dụ: Task 1 - Manage Conflict, Task 2 - Lead a team...).
-- **Nội dung:** Câu hỏi, Các đáp án, Đáp án đúng, Giải thích.
+### 1.1. Import Câu hỏi từ Excel
+- Admin upload file `.xlsx` với các cột: `Domain`, `ECO_Task`, `Question`, `A`, `B`, `C`, `D`, `Correct`, `Explanation`, `Type`
+- **Kiểm tra trùng lặp tự động:** So sánh 100 ký tự đầu (case-insensitive) để tránh import trùng
+- **Thông báo kết quả:** Hiển thị số câu mới thêm và số câu bị bỏ qua do trùng
+
+### 1.2. Quản lý Kho câu hỏi
+- Tìm kiếm theo nội dung, ID, Domain, ECO Task
+- Sửa/Xóa từng câu hỏi (chỉnh sửa đầy đủ các trường)
+- **Xóa trùng lặp:** Phát hiện và xóa câu hỏi trùng trong kho dữ liệu Cloud
+- **Xóa toàn bộ:** Dọn sạch kho câu hỏi (có xác nhận 2 lần)
+- Thống kê số câu theo Domain (People / Process / Business) — **case-insensitive**
+
+### 1.3. Quản lý Học viên
+- Xem danh sách toàn bộ học viên đã đăng ký
+- Thống kê chi tiết: số bài thi, câu đúng, câu chinh phục thành công
+- Đồng bộ dữ liệu real-time từ Firebase Cloud
 
 ---
 
-## 2. Phân hệ Học viên (Student Role - PMP Prep)
-
-Thay vì chỉ có 1 nút "Bắt đầu làm bài", Màn hình của Học viên sẽ là một **Trạm Ôn tập (Quiz Builder)** với 3 chế độ luyện thi cốt lõi:
+## 2. Phân hệ Học viên (Student Role) ✅
 
 ### 2.1. Luyện tập theo Domain (Domain-based Practice)
-Học viên chọn 1 trong 3 Domain (People, Process, Business Environment) để làm bài.
-- **Tùy biến:** Học viên tự do nhập Số lượng câu hỏi và Thời gian làm bài mong muốn.
-- Ứng dụng sẽ lọc toàn bộ câu hỏi thuộc Domain đó trong kho dữ liệu để người dùng làm.
+- Chọn 1 trong 3 Domain: People, Process, Business Environment
+- Tùy biến: Số lượng câu hỏi + Thời gian làm bài
+- Lọc câu hỏi đã làm đúng (Exclude Correct)
 
 ### 2.2. Luyện tập theo ECO Task (Task-based Practice)
-- Hiển thị danh sách 26 ECO Tasks.
-- **Tùy biến:** Học viên tự do nhập Số lượng câu hỏi và Thời gian làm bài mong muốn.
-- Học viên cảm thấy yếu ở Task nào (Ví dụ: Build a team) thì click vào Task đó để làm 1 bài Mini-test.
+- Hiển thị danh sách ECO Tasks phân nhóm theo Domain (Accordion)
+- Tìm kiếm ECO Task theo tên
+- Hỗ trợ cả 3 Domain: People, Process, **Business Environment** (case-insensitive)
+- Tùy biến: Số lượng câu hỏi + Thời gian làm bài
 
-### 2.3. Tạo Đề thi Tùy chỉnh / Thi Thử (Custom Mock Exam)
-Học viên tự thiết kế bài thi của mình bằng form tuỳ chọn:
-- **Số lượng câu hỏi:** Tuỳ chọn nhập số (Ví dụ: 10, 50, 100, tối đa 230).
-- **Thời gian làm bài:** Học viên tự do nhập thời gian mong muốn (Ví dụ: 60 phút, 120 phút).
-- **Cơ chế lọc câu hỏi thông minh:** Hệ thống sẽ tự động GẠCH BỎ những câu hỏi học viên đã từng làm đúng trước đó để tránh trùng lặp, đảm bảo mỗi lần thi là một bộ đề mới.
-- **Cơ chế trộn đề (Tỷ lệ chuẩn):** Khi tạo một bài test tuỳ chỉnh hoặc Full, hệ thống sẽ tự động bốc ngẫu nhiên câu hỏi (chưa từng làm) theo ĐÚNG TỶ LỆ:
-  - **People:** 33% số lượng câu hỏi.
-  - **Process:** 41% số lượng câu hỏi.
-  - **Business Environment:** 26% số lượng câu hỏi.
-- **Lưu trữ & Thi lại (Retake):** Bài test do học viên tự Build sẽ được lưu lại trong Lịch sử. Học viên được phép **Thi lại (Retake) nguyên bộ đề này tối đa 5 lần** để theo dõi sự tiến bộ của bản thân trước khi tạo một bộ đề mới hoàn toàn.
+### 2.3. Tạo Đề thi Tùy chỉnh (Custom Mock Exam)
+- Số lượng câu hỏi: Tùy chọn (tối đa toàn bộ kho)
+- Thời gian làm bài: Tùy chọn
+- Cơ chế trộn đề theo tỷ lệ PMI: 33% People, 41% Process, 26% Business Environment
+- Lọc câu hỏi đã làm đúng
 
-### 2.4. Chế độ Ôn luyện Đặc biệt (Special Practice)
-- **Làm lại câu sai (Review Incorrect Answers):** Một chế độ học tập riêng biệt chỉ bốc ra những câu hỏi học viên đã từng làm sai trong quá khứ để bắt buộc họ ôn lại cho đến khi làm đúng thì thôi. 
+### 2.4. Làm lại câu sai (Review Incorrect)
+- Tự động lọc câu hỏi đã từng làm sai
+- Cho phép ôn luyện lại cho đến khi chinh phục
 
 ### 2.5. Trải nghiệm Làm bài thi (Exam Engine)
-- Giao diện làm bài chuyên nghiệp với các tính năng:
-  - Đồng hồ đếm ngược.
-  - Lưới câu hỏi (Question Grid) để nhảy nhanh tới các câu chưa làm.
-  - Cắm cờ xem lại (Mark for Review).
+- Đồng hồ đếm ngược
+- Lưới câu hỏi (Question Grid) — nhảy nhanh tới câu chưa làm
+- Cắm cờ xem lại (Mark for Review)
+- Nộp bài tự động khi hết giờ
 
-### 2.6. Chấm điểm, Phân tích & Chữa bài (Analytics & Review)
-- **Tổng kết điểm:** Tính điểm Pass/Fail dựa trên tỷ lệ % (tuỳ chỉnh theo số lượng câu hỏi).
-- **Lịch sử Bài thi (Exam History):** Lưu trữ danh sách toàn bộ các đề thi học viên đã nộp để họ có thể xem lại điểm số bất kỳ lúc nào.
-- **Phân tích điểm số (Radar Chart/Bar Chart):** Hiển thị cho học viên biết họ đang làm tốt ở Domain nào (Ví dụ: People 80%, Process 40%) để biết đường ôn tập lại.
-- **Chế độ Chữa bài (Review Mode):** ĐÂY LÀ TÍNH NĂNG BẮT BUỘC. Ngay sau khi nộp bài hoặc khi xem lại từ Lịch sử, học viên được quyền "Xem lại toàn bộ bài thi". Ứng dụng sẽ hiển thị lại từng câu hỏi kèm theo:
-  - Đáp án học viên đã chọn (Đánh dấu Đỏ nếu sai, Xanh nếu đúng).
-  - Đáp án chính xác của hệ thống.
-  - **Khung Giải thích chi tiết (Explanation):** Giải thích rõ ràng tại sao đáp án đó lại đúng dựa trên dữ liệu Excel Admin đã import, giúp học viên học từ lỗi sai.
+### 2.6. Chấm điểm, Phân tích & Chữa bài
+- Tổng kết điểm Pass/Fail
+- Biểu đồ Radar phân tích điểm mạnh/yếu theo Domain
+- Lịch sử bài thi (xem lại điểm số bất kỳ lúc nào)
+- Chế độ Review Mode: Xem lại đáp án + Giải thích chi tiết
 
 ---
 
-## 3. Kiến trúc Dữ liệu & Công nghệ
-- **Ngôn ngữ:** React Native (Expo).
-- **Thuật toán sinh đề (Exam Generator Engine):** Xây dựng một Hàm (Function) chuyên lọc (Filter) và xáo trộn (Shuffle) danh sách câu hỏi dựa trên tham số (Domain, Task, Limit) học viên yêu cầu.
-- **Dữ liệu Mock (Giai đoạn 1):** Sẽ tạo giả lập cấu trúc JSON bao gồm đầy đủ thuộc tính `domain` và `eco_task` để code luồng tạo bài thi.
+## 3. Kiến trúc & Công nghệ ✅
 
-## 4. Lộ trình triển khai (Đã Cập nhật)
-- **Giai đoạn 1:** Cấu hình Data Mock (Bổ sung Domain, ECO Task) & Code màn hình Đăng nhập.
-- **Giai đoạn 2 (Student Dashboard):** Xây dựng Màn hình "Quiz Builder" cho phép học viên tự chọn chế độ thi (Theo Domain, Theo Task, Ngẫu nhiên).
-- **Giai đoạn 3 (Exam Engine):** Xây dựng bộ não sinh đề thi ngẫu nhiên và Màn hình làm bài (Sử dụng lại giao diện Component đã tạo ở phần trước).
-- **Giai đoạn 4 (Admin):** Xây dựng tính năng Import Excel.
+| Thành phần | Công nghệ |
+|---|---|
+| Frontend | React Native (Expo Router) |
+| Backend | Firebase Realtime Database |
+| Auth | Firebase Authentication (Email/Password) |
+| Hosting | Firebase Hosting |
+| Build | `npx expo export -p web` → `firebase deploy` |
+| Source Control | GitHub |
+
+### Cấu trúc dữ liệu chính
+- **Câu hỏi:** `{ id, domain, ecoTask, questionText, options[], correctAnswers[], explanation, type }`
+- **Lịch sử thi:** `{ examId, userId, score, answers[], timestamp, mode }`
+- **Câu sai:** `{ questionId, userId, wrongCount }`
+- **Câu đúng:** `{ questionId, userId }`
+
+---
+
+## 4. Lưu ý Kỹ thuật Quan trọng
+
+### Firebase Hosting (`firebase.json`)
+```json
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "/node_modules/**"
+    ]
+  }
+}
+```
+> ⚠️ **KHÔNG dùng `**/node_modules/**`** — sẽ bỏ qua font files trong `dist/assets/node_modules/` khiến icon hiện ô vuông.
+
+### So sánh Domain
+> ⚠️ Luôn dùng `.trim().toLowerCase()` khi so sánh domain. Dữ liệu Excel có thể là `"Business"`, `"business"`, hoặc `"Business Environment"`.
+
+### Alert trên Web
+> ⚠️ `Alert.alert()` với nhiều nút không hoạt động trên Web. Dùng `window.confirm()` thay thế khi `Platform.OS === 'web'`.
+
+---
+
+## 5. Công việc còn lại (TODO)
+- [ ] Kiểm thử lỗi toàn diện trên nhiều trình duyệt (Chrome, Firefox, Safari)
+- [ ] Tối ưu hiệu năng cho danh sách câu hỏi lớn (>1000 câu)
+- [ ] Tính năng Retake bài thi (tối đa 5 lần/đề)
+- [ ] Đóng gói ứng dụng cho iOS/Android (nếu cần)
