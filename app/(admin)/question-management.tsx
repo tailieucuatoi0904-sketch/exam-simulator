@@ -101,6 +101,57 @@ export default function QuestionManagementScreen() {
     Alert.alert("Thành công", "Đã cập nhật câu hỏi lên hệ thống Cloud.");
   };
 
+  const handleRemoveDuplicates = async () => {
+    const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, ' ').substring(0, 100);
+    const seen = new Set<string>();
+    const unique: Question[] = [];
+    for (const q of questions) {
+      const key = normalize(q.questionText);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(q);
+      }
+    }
+    const removed = questions.length - unique.length;
+    if (removed === 0) {
+      Alert.alert('Thông báo', 'Không phát hiện câu hỏi trùng lặp nào.');
+      return;
+    }
+    Alert.alert(
+      'Xác nhận xóa trùng',
+      `Phát hiện ${removed} câu hỏi trùng lặp. Bạn có muốn xóa chúng?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: `Xóa ${removed} câu trùng`, style: 'destructive', onPress: async () => {
+          setQuestions(unique);
+          await firebaseService.saveQuestionsToCloud(unique);
+          examStorage.saveCustomQuestions(unique.filter(q => q.id.startsWith('imported')));
+          Alert.alert('Thành công', `Đã xóa ${removed} câu hỏi trùng lặp. Còn lại ${unique.length} câu.`);
+        }}
+      ]
+    );
+  };
+
+  const handleDeleteAll = () => {
+    if (questions.length === 0) {
+      Alert.alert('Thông báo', 'Kho câu hỏi đã trống.');
+      return;
+    }
+    Alert.alert(
+      '⚠️ XÓA TOÀN BỘ',
+      `Bạn có chắc chắn muốn xóa TẤT CẢ ${questions.length} câu hỏi khỏi hệ thống Cloud?\n\nHành động này KHÔNG THỂ HOÀN TÁC.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Xóa tất cả', style: 'destructive', onPress: async () => {
+          setQuestions([]);
+          await firebaseService.saveQuestionsToCloud([]);
+          examStorage.saveCustomQuestions([]);
+          Alert.alert('Hoàn tất', 'Đã xóa toàn bộ câu hỏi khỏi hệ thống Cloud.');
+        }}
+      ]
+    );
+  };
+
   const renderQuestionItem = ({ item }: { item: Question }) => (
     <View style={styles.qItem}>
       <View style={styles.qHeader}>
@@ -138,6 +189,17 @@ export default function QuestionManagementScreen() {
         <View style={styles.content}>
           <View style={styles.importSection}>
             <ExcelImporter onDataImported={handleImported} />
+          </View>
+
+          <View style={styles.adminActions}>
+            <TouchableOpacity style={styles.dedupBtn} onPress={handleRemoveDuplicates}>
+              <Ionicons name="copy-outline" size={16} color="#e67e22" />
+              <Text style={styles.dedupBtnText}>Xóa trùng lặp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteAllBtn} onPress={handleDeleteAll}>
+              <Ionicons name="trash-outline" size={16} color="#fff" />
+              <Text style={styles.deleteAllBtnText}>Xóa toàn bộ</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.searchBar}>
@@ -294,6 +356,42 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.l,
     borderWidth: 1,
     borderColor: Theme.colors.border,
+  },
+  adminActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginBottom: Theme.spacing.m,
+  },
+  dedupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Theme.borderRadius.s,
+    borderWidth: 1,
+    borderColor: '#e67e22',
+    backgroundColor: '#fef9f3',
+  },
+  dedupBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e67e22',
+  },
+  deleteAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Theme.borderRadius.s,
+    backgroundColor: '#e74c3c',
+  },
+  deleteAllBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Theme.spacing.l },
   miniStat: { 
