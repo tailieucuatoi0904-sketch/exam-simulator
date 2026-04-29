@@ -34,8 +34,13 @@ export default function EcoTaskPracticeModal() {
       };
 
       pool.forEach(q => {
-        if (groups[q.domain]) {
-          groups[q.domain].add(q.ecoTask);
+        const d = q.domain.trim().toLowerCase();
+        if (d === 'people') {
+          groups['People'].add(q.ecoTask);
+        } else if (d === 'process') {
+          groups['Process'].add(q.ecoTask);
+        } else if (d === 'business' || d === 'business environment') {
+          groups['Business Environment'].add(q.ecoTask);
         }
       });
 
