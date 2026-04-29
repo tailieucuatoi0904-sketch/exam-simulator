@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, SafeAreaView, TouchableOpacity, Alert, FlatList, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, SafeAreaView, TouchableOpacity, Alert, FlatList, TextInput, Modal, ActivityIndicator, Platform } from 'react-native';
 import { Theme } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -114,42 +114,70 @@ export default function QuestionManagementScreen() {
     }
     const removed = questions.length - unique.length;
     if (removed === 0) {
-      Alert.alert('Thông báo', 'Không phát hiện câu hỏi trùng lặp nào.');
+      if (Platform.OS === 'web') {
+        window.alert('Không phát hiện câu hỏi trùng lặp nào.');
+      } else {
+        Alert.alert('Thông báo', 'Không phát hiện câu hỏi trùng lặp nào.');
+      }
       return;
     }
-    Alert.alert(
-      'Xác nhận xóa trùng',
-      `Phát hiện ${removed} câu hỏi trùng lặp. Bạn có muốn xóa chúng?`,
-      [
+
+    const doRemove = async () => {
+      setQuestions(unique);
+      await firebaseService.saveQuestionsToCloud(unique);
+      examStorage.saveCustomQuestions(unique.filter(q => q.id.startsWith('imported')));
+      const msg = `Đã xóa ${removed} câu hỏi trùng lặp. Còn lại ${unique.length} câu.`;
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Thành công', msg);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Phát hiện ${removed} câu hỏi trùng lặp. Bạn có muốn xóa chúng?`)) {
+        await doRemove();
+      }
+    } else {
+      Alert.alert('Xác nhận', `Phát hiện ${removed} câu hỏi trùng lặp.`, [
         { text: 'Hủy', style: 'cancel' },
-        { text: `Xóa ${removed} câu trùng`, style: 'destructive', onPress: async () => {
-          setQuestions(unique);
-          await firebaseService.saveQuestionsToCloud(unique);
-          examStorage.saveCustomQuestions(unique.filter(q => q.id.startsWith('imported')));
-          Alert.alert('Thành công', `Đã xóa ${removed} câu hỏi trùng lặp. Còn lại ${unique.length} câu.`);
-        }}
-      ]
-    );
+        { text: 'Xóa', style: 'destructive', onPress: doRemove },
+      ]);
+    }
   };
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
     if (questions.length === 0) {
-      Alert.alert('Thông báo', 'Kho câu hỏi đã trống.');
+      if (Platform.OS === 'web') {
+        window.alert('Kho câu hỏi đã trống.');
+      } else {
+        Alert.alert('Thông báo', 'Kho câu hỏi đã trống.');
+      }
       return;
     }
-    Alert.alert(
-      '⚠️ XÓA TOÀN BỘ',
-      `Bạn có chắc chắn muốn xóa TẤT CẢ ${questions.length} câu hỏi khỏi hệ thống Cloud?\n\nHành động này KHÔNG THỂ HOÀN TÁC.`,
-      [
+
+    const doDelete = async () => {
+      setQuestions([]);
+      await firebaseService.saveQuestionsToCloud([]);
+      examStorage.saveCustomQuestions([]);
+      const msg = 'Đã xóa toàn bộ câu hỏi khỏi hệ thống Cloud.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Hoàn tất', msg);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Bạn có chắc chắn muốn xóa TẤT CẢ ${questions.length} câu hỏi? Hành động này KHÔNG THỂ HOÀN TÁC.`)) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert('⚠️ XÓA TOÀN BỘ', `Xóa tất cả ${questions.length} câu hỏi?`, [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa tất cả', style: 'destructive', onPress: async () => {
-          setQuestions([]);
-          await firebaseService.saveQuestionsToCloud([]);
-          examStorage.saveCustomQuestions([]);
-          Alert.alert('Hoàn tất', 'Đã xóa toàn bộ câu hỏi khỏi hệ thống Cloud.');
-        }}
-      ]
-    );
+        { text: 'Xóa tất cả', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const renderQuestionItem = ({ item }: { item: Question }) => (
