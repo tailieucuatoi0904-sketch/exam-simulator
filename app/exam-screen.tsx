@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, Alert, ScrollView, Platform, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, Alert, ScrollView, Platform, StatusBar, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Theme } from '../constants/theme';
 import { QuestionCard } from '../components/QuestionCard';
@@ -19,9 +19,11 @@ export default function ExamScreen() {
     timeLimit: parseInt(params.timeLimit as string) || 60,
     selectedDomains: params.selectedDomains ? (params.selectedDomains as string).split(',') : undefined,
     selectedEcoTask: params.selectedEcoTask as string || undefined,
+    excludeCorrect: params.excludeCorrect === 'true',
   }), [params]);
 
   const [session, setSession] = useState<{ questions: Question[], timeLimit: number } | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string[]>>({});
   const [flags, setFlags] = useState<Record<string, boolean>>({});
@@ -30,11 +32,38 @@ export default function ExamScreen() {
 
   // Initialize Exam - Chỉ chạy 1 lần duy nhất khi Mount
   useEffect(() => {
-    if (!session) {
-      const newSession = generateExam(config);
-      setSession(newSession);
-    }
-  }, []); // Bỏ config khỏi dependency để tránh re-shuffle khi render lại
+    const init = async () => {
+      setLoading(true);
+      try {
+        // 1. Lấy kho câu hỏi từ Cloud
+        const cloudPool = await firebaseService.getQuestionsFromCloud();
+        
+        // 2. Lấy danh sách ID đã làm đúng (nếu cần loại bỏ)
+        let excludeIds: string[] = [];
+        if (config.excludeCorrect) {
+          excludeIds = await firebaseService.getCorrectQuestions();
+        }
+        
+        // 3. Sinh đề từ kho câu hỏi Cloud
+        const newSession = generateExam(config, excludeIds, cloudPool.length > 0 ? cloudPool : undefined);
+        
+        if (!newSession.questions || newSession.questions.length === 0) {
+          const reason = config.excludeCorrect ? " (Có thể do bạn đã làm đúng hết các câu này trước đó)" : "";
+          Alert.alert("Thông báo", `Không tìm thấy câu hỏi nào phù hợp với tiêu chí đã chọn${reason}. Vui lòng kiểm tra lại kho dữ liệu hoặc tắt bộ lọc 'Gạch bỏ câu đúng'.`);
+          router.back();
+          return;
+        }
+
+        setSession(newSession);
+      } catch (error) {
+        console.error("Lỗi khởi tạo đề thi:", error);
+        Alert.alert("Lỗi", "Không thể tải dữ liệu câu hỏi từ Cloud.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, []);
 
   // Timer Logic
   useEffect(() => {
@@ -82,7 +111,7 @@ export default function ExamScreen() {
   };
 
   const confirmSubmit = () => {
-    const total = session!.questions.length;
+    const total = session?.questions.length || 0;
     const answered = Object.keys(userAnswers).length;
     const unanswered = total - answered;
     
@@ -114,7 +143,7 @@ export default function ExamScreen() {
     try {
       const scoreResults = calculateScore(session.questions, userAnswers);
       
-      // Phân tích câu đúng/sai để cập nhật danh sách "Làm lại câu sai"
+      // Phân tích câu đúng/sai để cập nhật danh sách "Làm lại câu sai" và "Câu đã làm đúng"
       const incorrectIds: string[] = [];
       const correctIds: string[] = [];
       
@@ -133,8 +162,11 @@ export default function ExamScreen() {
         await firebaseService.saveIncorrectQuestions(incorrectIds);
       }
       
-      for (const id of correctIds) {
-        await firebaseService.removeIncorrectQuestion(id);
+      if (correctIds.length > 0) {
+        await firebaseService.saveCorrectQuestions(correctIds);
+        for (const id of correctIds) {
+          await firebaseService.removeIncorrectQuestion(id);
+        }
       }
 
       const examData = {
@@ -156,7 +188,14 @@ export default function ExamScreen() {
     }
   };
 
-  if (!session) return <View style={styles.loading}><Text>Đang khởi tạo đề thi...</Text></View>;
+  if (loading || !session) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <Text style={{ marginTop: 12, color: Theme.colors.textLight }}>Đang khởi tạo đề thi...</Text>
+      </View>
+    );
+  }
 
   const currentQuestion = session.questions[currentIndex];
   const progress = (currentIndex + 1) / session.questions.length;

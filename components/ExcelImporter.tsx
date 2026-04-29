@@ -29,11 +29,11 @@ export const ExcelImporter: React.FC<ExcelImporterProps> = ({ onDataImported }) 
         
         // Transform Excel data to PMP Question format
         const importedQuestions: Question[] = data.map((row: any, index: number) => {
-          // Giả định các cột trong Excel: Domain, Task, Question, A, B, C, D, Correct, Explanation, Type
+          // Giả định các cột trong Excel: Domain, ECO_Task, Question, A, B, C, D, Correct, Explanation, Type
           return {
             id: `imported-${Date.now()}-${index}`,
             domain: row['Domain'] || 'General',
-            ecoTask: row['Task'] || 'General Task',
+            ecoTask: row['ECO_Task'] || row['Task'] || 'General Task',
             questionText: row['Question'] || '',
             options: [
               { id: 'A', text: row['A'] || '' },
@@ -41,7 +41,7 @@ export const ExcelImporter: React.FC<ExcelImporterProps> = ({ onDataImported }) 
               { id: 'C', text: row['C'] || '' },
               { id: 'D', text: row['D'] || '' },
             ],
-            correctAnswers: (row['Correct'] || '').split(',').map((s: string) => s.trim()),
+            correctAnswers: (String(row['Correct'] || '')).split(',').map((s: string) => s.trim()),
             explanation: row['Explanation'] || '',
             type: (row['Type'] || 'single').toLowerCase() === 'multiple' ? 'multiple' : 'single',
           };
@@ -64,7 +64,7 @@ export const ExcelImporter: React.FC<ExcelImporterProps> = ({ onDataImported }) 
     const templateData = [
       {
         Domain: 'People',
-        Task: 'Manage conflicts',
+        ECO_Task: 'Manage conflicts',
         Question: 'Một xung đột xảy ra giữa hai thành viên, bạn nên làm gì?',
         A: 'Phớt lờ nó',
         B: 'Giải quyết ngay lập tức',

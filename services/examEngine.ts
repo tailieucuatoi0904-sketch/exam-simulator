@@ -11,39 +11,54 @@ export interface ExamSession {
 /**
  * Thuật toán sinh đề thi
  */
-export const generateExam = (config: ExamConfig): ExamSession => {
-  let pool = [...mockPmpQuestions];
+export const generateExam = (config: ExamConfig, excludeIds: string[] = [], questionsPool?: Question[]): ExamSession => {
+  let pool = questionsPool || [...mockPmpQuestions];
 
   // 1. Lọc theo chế độ
   if (config.mode === 'domain' && config.selectedDomains) {
     pool = pool.filter(q => config.selectedDomains?.includes(q.domain));
   } else if (config.mode === 'eco' && config.selectedEcoTask) {
-    pool = pool.filter(q => q.ecoTask === config.selectedEcoTask);
+    const targetTask = config.selectedEcoTask.trim().toLowerCase();
+    pool = pool.filter(q => (q.ecoTask || '').trim().toLowerCase() === targetTask);
   } else if (config.mode === 'incorrect') {
     const incorrectIds = examStorage.getIncorrectQuestions();
     pool = pool.filter(q => incorrectIds.includes(q.id));
   }
 
-  // 2. Logic gạch bỏ câu đã làm đúng (Giả lập: Hiện tại dùng toàn bộ pool)
-  // Sau này khi có Firebase, pool = pool.filter(q => !userCorrectIds.includes(q.id))
+  // 2. Gạch bỏ câu đã làm đúng (theo yêu cầu của học viên)
+  if (excludeIds.length > 0) {
+    pool = pool.filter(q => !excludeIds.includes(q.id));
+  }
 
   let finalQuestions: Question[] = [];
 
   if (config.mode === 'custom') {
     // 3. Trộn đề theo tỷ lệ PMI (33% People, 41% Process, 26% Business)
-    const peopleCount = Math.floor(config.questionCount * 0.33);
-    const processCount = Math.floor(config.questionCount * 0.41);
-    const businessCount = config.questionCount - peopleCount - processCount;
+    const peopleTarget = Math.floor(config.questionCount * 0.33);
+    const processTarget = Math.floor(config.questionCount * 0.41);
+    const businessTarget = config.questionCount - peopleTarget - processTarget;
 
     const peoplePool = shuffle(pool.filter(q => q.domain === 'People'));
     const processPool = shuffle(pool.filter(q => q.domain === 'Process'));
     const businessPool = shuffle(pool.filter(q => q.domain === 'Business Environment'));
 
-    finalQuestions = [
-      ...peoplePool.slice(0, peopleCount),
-      ...processPool.slice(0, processCount),
-      ...businessPool.slice(0, businessCount)
+    // Lấy theo tỷ lệ
+    let selected = [
+      ...peoplePool.slice(0, peopleTarget),
+      ...processPool.slice(0, processTarget),
+      ...businessPool.slice(0, businessTarget)
     ];
+
+    // Nếu vẫn chưa đủ số lượng yêu cầu (do một số domain bị thiếu hụt), 
+    // bốc thêm từ những câu còn lại trong pool chung
+    if (selected.length < config.questionCount) {
+      const selectedIds = selected.map(s => s.id);
+      const remainingPool = shuffle(pool.filter(q => !selectedIds.includes(q.id)));
+      const extraNeeded = config.questionCount - selected.length;
+      selected = [...selected, ...remainingPool.slice(0, extraNeeded)];
+    }
+    
+    finalQuestions = selected;
   } else {
     // Các chế độ khác chỉ đơn giản là lấy ngẫu nhiên từ pool đã lọc
     finalQuestions = shuffle(pool).slice(0, config.questionCount);

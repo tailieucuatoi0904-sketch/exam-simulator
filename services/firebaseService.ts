@@ -135,6 +135,36 @@ export const firebaseService = {
     }
   },
 
+  // 4b. Lưu danh sách câu hỏi ĐÃ LÀM ĐÚNG lên Cloud (để gạch bỏ trong tương lai)
+  saveCorrectQuestions: async (questionIds: string[]) => {
+    const user = auth.currentUser;
+    if (!user || questionIds.length === 0) return;
+    try {
+      const correctRef = ref(db, `correct_questions/${user.uid}`);
+      const snapshot = await get(correctRef);
+      let currentIds: string[] = snapshot.exists() ? snapshot.val() : [];
+      
+      const newIds = Array.from(new Set([...currentIds, ...questionIds]));
+      await set(correctRef, newIds);
+    } catch (e) {
+      console.error("Lỗi lưu câu hỏi đúng:", e);
+    }
+  },
+
+  // 4c. Lấy danh sách ID câu hỏi đã làm đúng từ Cloud
+  getCorrectQuestions: async (uid?: string): Promise<string[]> => {
+    const targetUid = uid || auth.currentUser?.uid;
+    if (!targetUid) return [];
+    try {
+      const correctRef = ref(db, `correct_questions/${targetUid}`);
+      const snapshot = await get(correctRef);
+      return snapshot.exists() ? snapshot.val() : [];
+    } catch (e) {
+      console.error("Lỗi lấy danh sách câu đúng:", e);
+      return [];
+    }
+  },
+
   // 5. Lấy profile user (để check role)
   getUserProfile: async (uid: string) => {
     try {
@@ -230,6 +260,30 @@ export const firebaseService = {
       return snapshot.exists() ? snapshot.val() : [];
     } catch (e) {
       console.error("Lỗi lấy danh sách câu sai:", e);
+      return [];
+    }
+  },
+
+  // 11. Lưu TOÀN BỘ kho câu hỏi lên Cloud (Dành cho Admin)
+  saveQuestionsToCloud: async (questions: Question[]) => {
+    try {
+      const qRef = ref(db, 'questions_pool');
+      await set(qRef, questions);
+      return true;
+    } catch (e) {
+      console.error("Lỗi lưu kho câu hỏi lên Cloud:", e);
+      return false;
+    }
+  },
+
+  // 12. Lấy TOÀN BỘ kho câu hỏi từ Cloud
+  getQuestionsFromCloud: async (): Promise<Question[]> => {
+    try {
+      const qRef = ref(db, 'questions_pool');
+      const snapshot = await get(qRef);
+      return snapshot.exists() ? snapshot.val() : [];
+    } catch (e) {
+      console.error("Lỗi lấy kho câu hỏi từ Cloud:", e);
       return [];
     }
   }

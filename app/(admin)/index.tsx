@@ -23,8 +23,9 @@ export default function AdminDashboardScreen() {
     const loadDashboardStats = async () => {
       setLoading(true);
       try {
-        // 1. Đếm câu hỏi
-        const questions = getAllQuestions();
+        // 1. Đếm câu hỏi (Lấy từ Cloud)
+        const cloudQuestions = await firebaseService.getQuestionsFromCloud();
+        const totalQuestionsCount = cloudQuestions.length;
         
         // 2. Đếm học viên
         const users = await firebaseService.getAllUsers();
@@ -34,7 +35,7 @@ export default function AdminDashboardScreen() {
         const exams = await firebaseService.getAllExamHistory();
 
         setStats({
-          totalQuestions: questions.length,
+          totalQuestions: totalQuestionsCount,
           totalStudents: studentCount,
           totalExams: exams.length
         });

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, SafeAreaView, TouchableOpacity, Alert, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, SafeAreaView, TouchableOpacity, Alert, FlatList, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Theme } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,15 +7,54 @@ import { bigMockQuestions } from '../../services/questionsData';
 import { ExcelImporter } from '../../components/ExcelImporter';
 import { examStorage } from '../../services/storage';
 import { Question } from '../../services/types';
+import { firebaseService } from '../../services/firebaseService';
 
 export default function QuestionManagementScreen() {
-  const [questions, setQuestions] = useState<Question[]>(() => {
-    return [...bigMockQuestions, ...examStorage.getCustomQuestions()];
-  });
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
 
-  const handleImported = (newQuestions: Question[]) => {
-    examStorage.saveCustomQuestions(newQuestions);
-    setQuestions(prev => [...prev, ...newQuestions]);
+  useEffect(() => {
+    const loadQuestions = async () => {
+      setLoading(true);
+      const cloudQs = await firebaseService.getQuestionsFromCloud();
+      // Nếu cloud trống, lấy từ local dự phòng
+      if (cloudQs.length > 0) {
+        setQuestions(cloudQs);
+      } else {
+        const localQs = [...bigMockQuestions, ...examStorage.getCustomQuestions()];
+        setQuestions(localQs);
+      }
+      setLoading(false);
+    };
+    loadQuestions();
+  }, []);
+
+  const handleImported = async (newQuestions: Question[]) => {
+    const updatedPool = [...questions, ...newQuestions];
+    setQuestions(updatedPool);
+    await firebaseService.saveQuestionsToCloud(updatedPool);
+    examStorage.saveCustomQuestions(updatedPool.filter(q => q.id.startsWith('imported')));
+  };
+
+  const filteredQuestions = questions.filter(q => 
+    q.questionText.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.ecoTask.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleDelete = (id: string) => {
+    Alert.alert("Xác nhận", "Bạn có chắc chắn muốn xóa câu hỏi này khỏi hệ thống Cloud?", [
+      { text: "Hủy", style: "cancel" },
+      { text: "Xóa", style: "destructive", onPress: async () => {
+        const newQuestions = questions.filter(q => q.id !== id);
+        setQuestions(newQuestions);
+        await firebaseService.saveQuestionsToCloud(newQuestions);
+        examStorage.saveCustomQuestions(newQuestions.filter(q => q.id.startsWith('imported')));
+      }}
+    ]);
   };
 
   // Tính toán thống kê
@@ -25,13 +64,32 @@ export default function QuestionManagementScreen() {
     business: questions.filter(q => q.domain === 'Business Environment').length,
   };
 
+  const handleUpdateQuestion = async (updated: Question) => {
+    const newQuestions = questions.map(q => q.id === updated.id ? updated : q);
+    setQuestions(newQuestions);
+    await firebaseService.saveQuestionsToCloud(newQuestions);
+    examStorage.saveCustomQuestions(newQuestions.filter(q => q.id.startsWith('imported')));
+    setEditingQuestion(null);
+    Alert.alert("Thành công", "Đã cập nhật câu hỏi lên hệ thống Cloud.");
+  };
+
   const renderQuestionItem = ({ item }: { item: Question }) => (
     <View style={styles.qItem}>
       <View style={styles.qHeader}>
-        <Text style={styles.qDomain}>{item.domain}</Text>
-        <Text style={styles.qId}>ID: {item.id.substring(0, 8)}...</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.qDomain}>{item.domain}</Text>
+          <Text style={styles.qId}>ID: {item.id.substring(0, 12)}</Text>
+        </View>
+        <View style={styles.qActions}>
+          <TouchableOpacity onPress={() => setEditingQuestion(item)} style={styles.actionBtn}>
+            <Ionicons name="create-outline" size={20} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+            <Ionicons name="trash-outline" size={20} color={Theme.colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
-      <Text style={styles.qText} numberOfLines={2}>
+      <Text style={styles.qText}>
         {item.questionText}
       </Text>
       <Text style={styles.qTask}>Task: {item.ecoTask}</Text>
@@ -54,6 +112,21 @@ export default function QuestionManagementScreen() {
             <ExcelImporter onDataImported={handleImported} />
           </View>
 
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={Theme.colors.textLight} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm theo nội dung, ID, Domain..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={Theme.colors.textLight} />
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.statsRow}>
             <View style={styles.miniStat}>
               <Text style={styles.miniStatVal}>{stats.people}</Text>
@@ -69,18 +142,106 @@ export default function QuestionManagementScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Danh sách câu hỏi ({questions.length})</Text>
-          
-          <FlatList
-            data={questions}
-            renderItem={renderQuestionItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContent}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-          />
+          {loading ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={Theme.colors.primary} />
+              <Text style={{ marginTop: 10, color: Theme.colors.textLight }}>Đang tải kho câu hỏi từ Cloud...</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>Danh sách câu hỏi ({filteredQuestions.length})</Text>
+              
+              <FlatList
+                data={filteredQuestions}
+                renderItem={renderQuestionItem}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.listContent}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+              />
+            </>
+          )}
         </View>
       </View>
+
+      {/* Modal Chỉnh sửa câu hỏi */}
+      <Modal visible={!!editingQuestion} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chỉnh sửa câu hỏi</Text>
+              <TouchableOpacity onPress={() => setEditingQuestion(null)}>
+                <Ionicons name="close" size={24} color={Theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalScroll}>
+              <Text style={styles.fieldLabel}>Nội dung câu hỏi</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                multiline
+                value={editingQuestion?.questionText}
+                onChangeText={(text) => setEditingQuestion(prev => prev ? { ...prev, questionText: text } : null)}
+              />
+
+              <Text style={styles.fieldLabel}>Domain</Text>
+              <TextInput
+                style={styles.input}
+                value={editingQuestion?.domain}
+                onChangeText={(text) => setEditingQuestion(prev => prev ? { ...prev, domain: text } : null)}
+              />
+
+              <Text style={styles.fieldLabel}>ECO Task</Text>
+              <TextInput
+                style={styles.input}
+                value={editingQuestion?.ecoTask}
+                onChangeText={(text) => setEditingQuestion(prev => prev ? { ...prev, ecoTask: text } : null)}
+              />
+
+              <Text style={styles.fieldLabel}>Các tùy chọn (Options)</Text>
+              {editingQuestion?.options.map((opt, idx) => (
+                <View key={opt.id} style={styles.optionInputRow}>
+                  <Text style={styles.optionPrefix}>{opt.id}</Text>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={opt.text}
+                    onChangeText={(text) => {
+                      const newOptions = [...(editingQuestion?.options || [])];
+                      newOptions[idx] = { ...newOptions[idx], text };
+                      setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                    }}
+                  />
+                </View>
+              ))}
+
+              <Text style={styles.fieldLabel}>Đáp án đúng (Ví dụ: A hoặc A,B)</Text>
+              <TextInput
+                style={styles.input}
+                value={editingQuestion?.correctAnswers.join(',')}
+                onChangeText={(text) => setEditingQuestion(prev => prev ? { ...prev, correctAnswers: text.split(',').map(s => s.trim().toUpperCase()) } : null)}
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.fieldLabel}>Giải thích (Explanation)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                multiline
+                value={editingQuestion?.explanation}
+                onChangeText={(text) => setEditingQuestion(prev => prev ? { ...prev, explanation: text } : null)}
+              />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingQuestion(null)}>
+                <Text style={styles.cancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={() => editingQuestion && handleUpdateQuestion(editingQuestion)}>
+                <Text style={styles.saveBtnText}>Lưu thay đổi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -135,6 +296,119 @@ const styles = StyleSheet.create({
   qHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   qDomain: { fontSize: 10, fontWeight: 'bold', color: Theme.colors.primary, textTransform: 'uppercase' },
   qId: { fontSize: 10, color: Theme.colors.textLight },
+  qActions: { flexDirection: 'row' },
+  actionBtn: { marginLeft: Theme.spacing.s, padding: 4 },
+  optionInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  optionPrefix: {
+    width: 30,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Theme.colors.primary,
+  },
   qText: { fontSize: 14, color: Theme.colors.text, marginBottom: 4, fontWeight: '500' },
   qTask: { fontSize: 11, color: Theme.colors.textLight, fontStyle: 'italic' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    paddingHorizontal: Theme.spacing.m,
+    borderRadius: Theme.borderRadius.m,
+    marginBottom: Theme.spacing.l,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    height: 45,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: Theme.spacing.s,
+    fontSize: 14,
+    color: Theme.colors.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: Theme.spacing.l,
+    height: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.l,
+    paddingBottom: Theme.spacing.m,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Theme.colors.text,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.colors.text,
+    marginBottom: 8,
+    marginTop: Theme.spacing.m,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.s,
+    padding: Theme.spacing.m,
+    fontSize: 14,
+    color: Theme.colors.text,
+    backgroundColor: '#f9f9f9',
+  },
+  textArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: Theme.spacing.l,
+    gap: Theme.spacing.m,
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: Theme.borderRadius.m,
+    backgroundColor: Theme.colors.border,
+  },
+  cancelBtnText: {
+    color: Theme.colors.text,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: Theme.borderRadius.m,
+    backgroundColor: Theme.colors.primary,
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  note: {
+    fontSize: 12,
+    color: Theme.colors.textLight,
+    marginTop: Theme.spacing.l,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  }
 });
+ 

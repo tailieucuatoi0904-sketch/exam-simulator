@@ -46,10 +46,20 @@ export default function StudentManagementScreen() {
         setTotalExams(allHistory.length);
 
         // 3. Tổng hợp thống kê theo từng userId
-        const map: Record<string, StudentStats> = {};
+        const map: Record<string, StudentStats & { correctCount: number }> = {};
+        
+        // Fetch correct counts for each student using firebaseService
+        const correctCounts = await Promise.all(studentList.map(async (s) => {
+          const ids = await firebaseService.getCorrectQuestions(s.id);
+          return { id: s.id, count: ids.length };
+        }));
+
+        const countsMap: Record<string, number> = {};
+        correctCounts.forEach(c => countsMap[c.id] = c.count);
+
         allHistory.forEach((record: any) => {
           const uid = record.userId || 'unknown';
-          if (!map[uid]) map[uid] = { examCount: 0, passCount: 0, avgScore: 0 };
+          if (!map[uid]) map[uid] = { examCount: 0, passCount: 0, avgScore: 0, correctCount: countsMap[uid] || 0 };
           map[uid].examCount++;
           if (record.results?.pass) map[uid].passCount++;
           map[uid].avgScore += record.results?.percentage || 0;
@@ -62,7 +72,7 @@ export default function StudentManagementScreen() {
           }
         });
 
-        setStatsMap(map);
+        setStatsMap(map as any);
       } catch (e) {
         console.error('Lỗi load dữ liệu:', e);
       } finally {

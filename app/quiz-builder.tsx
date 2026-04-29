@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TextInput, ScrollView, Switch, Alert } from 're
 import { Theme } from '../constants/theme';
 import { CustomButton } from '../components/CustomButton';
 import { pmpDomains } from '../services/mockData';
+import { firebaseService } from '../services/firebaseService';
 import { router } from 'expo-router';
 
 export default function QuizBuilderModal() {
@@ -13,6 +14,16 @@ export default function QuizBuilderModal() {
   const [selectedDomains, setSelectedDomains] = useState<Record<string, boolean>>(
     pmpDomains.reduce((acc, domain) => ({ ...acc, [domain]: true }), {})
   );
+  const [excludeCorrect, setExcludeCorrect] = useState(false);
+  const [poolSize, setPoolSize] = useState(230); // Default fallback
+
+  React.useEffect(() => {
+    const fetchPool = async () => {
+      const questions = await firebaseService.getQuestionsFromCloud();
+      if (questions.length > 0) setPoolSize(questions.length);
+    };
+    fetchPool();
+  }, []);
 
   const toggleDomain = (domain: string) => {
     setSelectedDomains(prev => ({
@@ -25,8 +36,8 @@ export default function QuizBuilderModal() {
     const numQuestions = parseInt(questionCount);
     const numTime = parseInt(timeLimit);
 
-    if (isNaN(numQuestions) || numQuestions <= 0 || numQuestions > 230) {
-      Alert.alert('Lỗi', 'Số lượng câu hỏi phải từ 1 đến 230.');
+    if (isNaN(numQuestions) || numQuestions <= 0 || numQuestions > poolSize) {
+      Alert.alert('Lỗi', `Số lượng câu hỏi phải từ 1 đến ${poolSize}.`);
       return;
     }
 
@@ -48,7 +59,8 @@ export default function QuizBuilderModal() {
         mode: 'custom',
         questionCount: numQuestions,
         timeLimit: numTime,
-        selectedDomains: Object.keys(selectedDomains).filter(k => selectedDomains[k]).join(',')
+        selectedDomains: Object.keys(selectedDomains).filter(k => selectedDomains[k]).join(','),
+        excludeCorrect: excludeCorrect.toString()
       }
     });
   };
@@ -63,7 +75,7 @@ export default function QuizBuilderModal() {
         <Text style={styles.sectionTitle}>1. Thông số chung</Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Số lượng câu hỏi (Tối đa 230)</Text>
+          <Text style={styles.label}>Số lượng câu hỏi (Tối đa {poolSize})</Text>
           <TextInput
             style={styles.input}
             keyboardType="number-pad"
@@ -100,6 +112,22 @@ export default function QuizBuilderModal() {
             />
           </View>
         ))}
+      </View>
+
+      {/* Tùy chọn nâng cao */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>3. Tùy chọn nâng cao</Text>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.switchLabel}>Gạch bỏ câu đã làm đúng</Text>
+            <Text style={styles.switchSubtitle}>Chỉ bốc những câu bạn chưa làm hoặc đã từng làm sai.</Text>
+          </View>
+          <Switch
+            value={excludeCorrect}
+            onValueChange={setExcludeCorrect}
+            trackColor={{ false: Theme.colors.border, true: Theme.colors.success }}
+          />
+        </View>
       </View>
 
       <CustomButton 
@@ -183,6 +211,12 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: Theme.typography.body.fontSize,
     color: Theme.colors.text,
+    fontWeight: '600',
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: Theme.colors.textLight,
+    marginTop: 2,
   },
   startButton: {
     marginTop: Theme.spacing.m,

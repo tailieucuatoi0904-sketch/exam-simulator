@@ -36,12 +36,14 @@ export default function ResultScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         
         {/* Pass/Fail Banner */}
-        <View style={[styles.resultCard, { backgroundColor: pass ? 'rgba(38, 194, 129, 0.1)' : 'rgba(235, 77, 75, 0.1)' }]}>
-          <Ionicons 
-            name={pass ? "checkmark-circle" : "close-circle"} 
-            size={80} 
-            color={pass ? Theme.colors.success : Theme.colors.error} 
-          />
+        <View style={[styles.resultCard, { backgroundColor: pass ? 'rgba(38, 194, 129, 0.08)' : 'rgba(235, 77, 75, 0.08)' }]}>
+          <View style={[styles.statusIconBg, { backgroundColor: pass ? Theme.colors.success : Theme.colors.error }]}>
+            <Ionicons 
+              name={pass ? "checkmark-sharp" : "close-sharp"} 
+              size={50} 
+              color="#fff" 
+            />
+          </View>
           <Text style={[styles.resultStatus, { color: pass ? Theme.colors.success : Theme.colors.error }]}>
             {pass ? "CONGRATULATIONS!" : "KEEP TRYING!"}
           </Text>
@@ -50,49 +52,59 @@ export default function ResultScreen() {
           </Text>
         </View>
 
-
-
-        {/* Radar Analysis Chart */}
-        <Text style={styles.sectionTitle}>PMI Domain Balance</Text>
-        <RadarChart 
-          data={{
-            people: (domainStats['People']?.correct / domainStats['People']?.total * 100) || 0,
-            process: (domainStats['Process']?.correct / domainStats['Process']?.total * 100) || 0,
-            business: (domainStats['Business Environment']?.correct / domainStats['Business Environment']?.total * 100) || 0,
-          }} 
-        />
-
-        {/* Score Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Score</Text>
-            <Text style={[styles.statValue, { color: Theme.colors.primary }]}>{percentage.toFixed(0)}%</Text>
+        {/* Score Stats Section */}
+        <View style={styles.summaryStats}>
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryLabel}>FINAL SCORE</Text>
+            <Text style={[styles.summaryValue, { color: pass ? Theme.colors.success : Theme.colors.error }]}>
+              {percentage.toFixed(1)}%
+            </Text>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Correct</Text>
-            <Text style={styles.statValue}>{correct}/{total}</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryLabel}>CORRECT</Text>
+            <Text style={styles.summaryValue}>{correct} <Text style={{ fontSize: 14, color: Theme.colors.textLight }}>/ {total}</Text></Text>
           </View>
         </View>
 
-        {/* Domain Analysis */}
-        <Text style={styles.sectionTitle}>Domain Analysis</Text>
+        {/* Radar Analysis Chart */}
+        <View style={styles.chartSection}>
+          <Text style={styles.sectionTitle}>Performance by Domain</Text>
+          <RadarChart 
+            data={{
+              people: (domainStats['People']?.correct / domainStats['People']?.total * 100) || 0,
+              process: (domainStats['Process']?.correct / domainStats['Process']?.total * 100) || 0,
+              business: (domainStats['Business Environment']?.correct / domainStats['Business Environment']?.total * 100) || 0,
+            }} 
+          />
+        </View>
+
+        {/* Domain Breakdown */}
+        <Text style={styles.sectionTitle}>Detailed Breakdown</Text>
         {Object.entries(domainStats).map(([domain, stats]: [string, any]) => {
           const domainPercent = (stats.correct / stats.total) * 100;
+          const isDomainPass = domainPercent >= 70;
           return (
             <View key={domain} style={styles.domainCard}>
               <View style={styles.domainHeader}>
-                <Text style={styles.domainName}>{domain}</Text>
-                <Text style={styles.domainScore}>{domainPercent.toFixed(0)}%</Text>
+                <View>
+                  <Text style={styles.domainName}>{domain}</Text>
+                  <Text style={styles.domainDetail}>{stats.correct} correct of {stats.total} questions</Text>
+                </View>
+                <View style={[styles.domainBadge, { backgroundColor: isDomainPass ? 'rgba(38, 194, 129, 0.1)' : 'rgba(241, 196, 15, 0.1)' }]}>
+                  <Text style={[styles.domainBadgeText, { color: isDomainPass ? Theme.colors.success : Theme.colors.warning }]}>
+                    {domainPercent.toFixed(0)}%
+                  </Text>
+                </View>
               </View>
               <View style={styles.progressBg}>
                 <View 
                   style={[
                     styles.progressFill, 
-                    { width: `${domainPercent}%`, backgroundColor: domainPercent >= 70 ? Theme.colors.success : Theme.colors.warning }
+                    { width: `${domainPercent}%`, backgroundColor: isDomainPass ? Theme.colors.success : Theme.colors.warning }
                   ]} 
                 />
               </View>
-              <Text style={styles.domainDetail}>{stats.correct} correct out of {stats.total} questions</Text>
             </View>
           );
         })}
@@ -101,12 +113,13 @@ export default function ResultScreen() {
           <CustomButton 
             title="Review Questions" 
             onPress={() => router.push('/review-screen')} 
-            type="outline"
+            type="primary"
             style={styles.actionBtn}
           />
           <CustomButton 
             title="Back to Dashboard" 
             onPress={() => router.replace('/(tabs)')} 
+            type="outline"
             style={styles.actionBtn}
           />
         </View>
@@ -131,47 +144,76 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.l,
     marginBottom: Theme.spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  statusIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.m,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   resultStatus: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginTop: Theme.spacing.m,
+    marginTop: Theme.spacing.s,
+    letterSpacing: 1,
   },
   resultSubStatus: {
     fontSize: 14,
     color: Theme.colors.textLight,
-    marginTop: 4,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  statsRow: {
+  summaryStats: {
     flexDirection: 'row',
-    gap: Theme.spacing.l,
-    marginBottom: Theme.spacing.xl,
-  },
-  statBox: {
-    flex: 1,
     backgroundColor: Theme.colors.surface,
     padding: Theme.spacing.l,
     borderRadius: Theme.borderRadius.m,
+    marginBottom: Theme.spacing.xl,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
     alignItems: 'center',
-    elevation: 2,
   },
-  statLabel: {
-    fontSize: 12,
+  summaryBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryDivider: {
+    width: 1,
+    height: '60%',
+    backgroundColor: Theme.colors.border,
+  },
+  summaryLabel: {
+    fontSize: 10,
     color: Theme.colors.textLight,
     marginBottom: 4,
-    textTransform: 'uppercase',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
-  statValue: {
-    fontSize: 28,
+  summaryValue: {
+    fontSize: 26,
     fontWeight: 'bold',
     color: Theme.colors.text,
   },
+  chartSection: {
+    marginBottom: Theme.spacing.xl,
+  },
   sectionTitle: {
-    fontSize: Theme.typography.h3.fontSize,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: Theme.spacing.m,
     color: Theme.colors.text,
+    paddingLeft: 4,
   },
   domainCard: {
     backgroundColor: Theme.colors.surface,
@@ -179,37 +221,43 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.m,
     marginBottom: Theme.spacing.m,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.02)',
   },
   domainHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   domainName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Theme.colors.text,
-  },
-  domainScore: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Theme.colors.primary,
-  },
-  progressBg: {
-    height: 8,
-    backgroundColor: Theme.colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
+    marginBottom: 2,
   },
   domainDetail: {
     fontSize: 12,
     color: Theme.colors.textLight,
+  },
+  domainBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  domainBadgeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  progressBg: {
+    height: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   actionButtons: {
     marginTop: Theme.spacing.xl,

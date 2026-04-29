@@ -20,4 +20,5 @@ export interface ExamConfig {
   timeLimit: number;
   selectedDomains?: string[];
   selectedEcoTask?: string;
+  excludeCorrect?: boolean;
 }

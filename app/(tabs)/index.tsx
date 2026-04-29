@@ -15,7 +15,8 @@ export default function StudentDashboardScreen() {
   const [stats, setStats] = React.useState({
     totalExams: 0,
     passRate: 0,
-    incorrectCount: 0
+    incorrectCount: 0,
+    totalPoolQuestions: 0
   });
 
   const user = auth.currentUser;
@@ -26,26 +27,28 @@ export default function StudentDashboardScreen() {
     React.useCallback(() => {
       const loadStats = async () => {
         // CHỈ lấy từ Firebase Cloud để đảm bảo tính đồng bộ chuẩn 100%
-        const [cloudHistory, cloudIncorrects] = await Promise.all([
+        const [cloudHistory, cloudIncorrects, cloudQuestions] = await Promise.all([
           firebaseService.getUserHistory(),
-          firebaseService.getIncorrectQuestions()
+          firebaseService.getIncorrectQuestions(),
+          firebaseService.getQuestionsFromCloud()
         ]);
         
+        const baseStats = {
+          totalExams: cloudHistory.length,
+          passRate: 0,
+          incorrectCount: cloudIncorrects.length,
+          totalPoolQuestions: cloudQuestions.length
+        };
+
         if (cloudHistory.length > 0) {
           const passCount = cloudHistory.filter((h: any) => h.pass).length;
           const rate = (passCount / cloudHistory.length) * 100;
           setStats({
-            totalExams: cloudHistory.length,
-            passRate: Math.round(rate),
-            incorrectCount: cloudIncorrects.length
+            ...baseStats,
+            passRate: Math.round(rate)
           });
         } else {
-          // Tài khoản mới hoặc chưa có dữ liệu trên Cloud
-          setStats({
-            totalExams: 0,
-            passRate: 0,
-            incorrectCount: cloudIncorrects.length
-          });
+          setStats(baseStats);
         }
       };
       loadStats();
@@ -111,8 +114,8 @@ export default function StudentDashboardScreen() {
             </View>
             <View style={styles.divider} />
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.incorrectCount}</Text>
-              <Text style={styles.statLabel}>Câu sai</Text>
+              <Text style={styles.statValue}>{stats.totalPoolQuestions}</Text>
+              <Text style={styles.statLabel}>Kho câu hỏi</Text>
             </View>
           </View>
         </View>

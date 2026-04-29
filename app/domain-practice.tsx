@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Alert, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Alert, TouchableOpacity, TextInput, Switch } from 'react-native';
 import { Theme } from '../constants/theme';
 import { CustomButton } from '../components/CustomButton';
 import { pmpDomains } from '../services/mockData';
@@ -10,6 +10,7 @@ export default function DomainPracticeModal() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState('');
   const [timeLimit, setTimeLimit] = useState('');
+  const [excludeCorrect, setExcludeCorrect] = useState(false);
 
   const handleStartExam = () => {
     if (!selectedDomain) {
@@ -36,7 +37,8 @@ export default function DomainPracticeModal() {
         mode: 'domain',
         questionCount: numQuestions,
         timeLimit: numTime,
-        selectedDomains: selectedDomain
+        selectedDomains: selectedDomain,
+        excludeCorrect: excludeCorrect.toString()
       }
     });
   };
@@ -75,6 +77,21 @@ export default function DomainPracticeModal() {
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>3. Tùy chọn nâng cao</Text>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.switchLabel}>Gạch bỏ câu đã làm đúng</Text>
+            <Text style={styles.switchSubtitle}>Chỉ bốc những câu bạn chưa làm hoặc đã từng làm sai.</Text>
+          </View>
+          <Switch
+            value={excludeCorrect}
+            onValueChange={setExcludeCorrect}
+            trackColor={{ false: Theme.colors.border, true: Theme.colors.success }}
+          />
+        </View>
       </View>
 
       <CustomButton 
@@ -162,6 +179,22 @@ const styles = StyleSheet.create({
   itemTextSelected: {
     color: Theme.colors.primary,
     fontWeight: 'bold',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Theme.spacing.s,
+  },
+  switchLabel: {
+    fontSize: Theme.typography.body.fontSize,
+    color: Theme.colors.text,
+    fontWeight: '600',
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: Theme.colors.textLight,
+    marginTop: 2,
   },
   startButton: {
     marginTop: Theme.spacing.m,
