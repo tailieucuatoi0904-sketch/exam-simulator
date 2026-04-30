@@ -39,6 +39,15 @@ constants/
 
 ---
 
+## 🧠 Core Skills (Agent Instructions)
+Dự án có bộ kỹ năng chuyên biệt để AI hỗ trợ vận hành:
+1. **`deploy-to-firebase`**: Quy trình build & deploy an toàn (check icon font).
+2. **`import-pmp-data`**: Logic xử lý Excel & Import câu hỏi (tránh trùng lặp).
+3. **`pmp-exam-engine`**: Logic tính điểm, xáo trộn đề và lưu lịch sử.
+4. **`pmp-admin-dashboard`**: Quản lý học viên & ngân hàng câu hỏi.
+
+---
+
 ## ✅ Quy tắc bắt buộc
 
 ### Firebase
