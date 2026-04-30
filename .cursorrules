@@ -1,0 +1,112 @@
+# PMP Exam Simulator — Cursor Rules
+
+## 🏗️ Tech Stack
+- **Framework:** Expo Router (file-based routing) + React Native Web
+- **Language:** TypeScript
+- **Backend:** Firebase (Auth + Realtime Database + Hosting)
+- **Icons:** @expo/vector-icons (Ionicons, MaterialIcons)
+- **Project ID:** pmp-exam-simulator-7d8dd
+
+---
+
+## 📁 Cấu trúc thư mục
+
+```
+app/
+  index.tsx              ← Màn hình đăng nhập (login only, KHÔNG đăng ký)
+  (admin)/               ← Route cho admin (role: 'admin')
+    index.tsx            ← Dashboard admin
+    analytics.tsx        ← Thống kê
+    student-management.tsx
+    question-management.tsx
+  (tabs)/                ← Route cho học viên (role: 'student')
+  exam-screen.tsx
+  result-screen.tsx
+  review-screen.tsx
+  ...
+
+services/
+  firebaseService.ts     ← MỌI thao tác Firebase phải qua đây
+  examEngine.ts          ← Logic chấm điểm, tạo đề thi
+  types.ts               ← TypeScript interfaces
+
+config/
+  firebaseConfig.ts      ← Firebase init (auth, db)
+
+constants/
+  theme.ts               ← Toàn bộ màu sắc, spacing, borderRadius
+```
+
+---
+
+## ✅ Quy tắc bắt buộc
+
+### Firebase
+- **LUÔN** dùng `firebaseService.ts` để thao tác dữ liệu, KHÔNG gọi Firebase SDK trực tiếp trong component
+- Role-based routing: `admin` → `/(admin)`, `student` → `/(tabs)`
+- Tài khoản học viên do admin tạo, **KHÔNG** có self-registration
+
+### Styling
+- **LUÔN** dùng `Theme` từ `constants/theme.ts` cho màu sắc, spacing, borderRadius
+- KHÔNG hardcode màu sắc hay số magic trực tiếp trong StyleSheet
+- Dùng `StyleSheet.create()`, không inline style phức tạp
+
+### TypeScript
+- Khai báo interface trong `services/types.ts`
+- Không dùng `any` trừ khi xử lý error từ Firebase
+
+### Component
+- Tên component = PascalCase, tên file = kebab-case
+- Mỗi screen chỉ fetch data ở useEffect đầu tiên, không fetch lồng nhau
+
+---
+
+## 🚫 Những điều KHÔNG được làm
+
+1. **KHÔNG** thêm nút đăng ký vào màn hình login — tài khoản chỉ do admin tạo
+2. **KHÔNG** import `react-native` trong file `app/+html.tsx` (gây crash SSR)
+3. **KHÔNG** sửa `firebase.json` ignore rule về `**/node_modules/**` — phải giữ `/node_modules/**` (1 dấu `/`)
+4. **KHÔNG** dùng CDN để nạp font icon — phải dùng font gốc từ `node_modules/@expo/vector-icons`
+5. **KHÔNG** commit trực tiếp vào `main` khi có breaking change chưa test
+
+---
+
+## 🚀 Quy trình Deploy
+
+```powershell
+# 1. Build
+npx expo export --platform web
+
+# Kiểm tra số file font (phải > 0)
+Get-ChildItem dist -Recurse -Include "*.ttf" | Measure-Object
+
+# 2. Deploy
+firebase deploy --only hosting
+
+# Kiểm tra output: "found 64 files in dist" (không được ít hơn)
+```
+
+**Sau deploy:** Mở Incognito → DevTools → Network → lọc "Font" → kiểm tra tất cả status 200
+
+---
+
+## 🐛 Lỗi đã gặp & cách fix
+
+| Lỗi | Nguyên nhân | Fix |
+|-----|------------|-----|
+| Icon hiện ô vuông trên Hosting | `firebase.json` ignore `**/node_modules/**` chặn font trong `dist/` | Đổi thành `/node_modules/**` |
+| Màn hình trắng sau deploy | `app/+html.tsx` import từ `react-native` | Chỉ dùng React/HTML thuần trong `+html.tsx` |
+| Icon hiện sai khi dùng CDN | CDN Ionicons khác codepoint với bản Expo | Dùng font gốc từ node_modules |
+| `found 27 files` thay vì `64` | Ignore rule sai | Sửa firebase.json |
+
+---
+
+## 📝 Commit Message Convention
+
+```
+feat: thêm tính năng mới
+fix: sửa bug
+chore: cập nhật config/dependencies
+refactor: cải thiện code
+docs: cập nhật tài liệu
+```
