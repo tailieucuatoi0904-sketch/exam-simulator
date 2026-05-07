@@ -3,6 +3,29 @@ import { Question, ExamConfig } from './types';
 import { examStorage } from './storage';
 
 /**
+ * Hàm chuẩn hóa tên domain để thống kê và lọc chính xác
+ */
+export const normalizeDomain = (d: string): string => {
+  const lower = (d || '').toLowerCase();
+  if (lower.includes('people')) return 'People';
+  if (lower.includes('process')) return 'Process';
+  if (lower.includes('business')) return 'Business Environment';
+  return d || 'Uncategorized';
+};
+
+/**
+ * Hàm xáo trộn mảng
+ */
+function shuffle<T>(array: T[]): T[] {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+}
+
+/**
  * Giãn các câu hỏi loại case_set thành nhiều sub-question riêng lẻ.
  * Mỗi sub-question sẽ mang theo thông tin scenario của parent để hiển thị.
  * Với Phương án A: Mỗi sub-question = 1 điểm riêng biệt.
@@ -96,15 +119,22 @@ export const generateExam = (config: ExamConfig, excludeIds: string[] = [], ques
 
   let finalQuestions: Question[] = [];
 
-  if (config.mode === 'custom' && !config.selectedDomains) {
-    // 3. Trộn đề theo tỷ lệ yêu cầu (People 33%, Process 41%, Business 26%)
+  // Quyết định chiến lược chọn câu hỏi:
+  // Nếu là Custom mode HOẶC người dùng chọn đủ 3 domains chính -> Áp dụng tỷ lệ PMI (33/41/26)
+  const isStandardPMP = !config.selectedDomains || (
+    config.selectedDomains.some(d => normalizeDomain(d) === 'People') &&
+    config.selectedDomains.some(d => normalizeDomain(d) === 'Process') &&
+    config.selectedDomains.some(d => normalizeDomain(d) === 'Business Environment')
+  );
+
+  if (config.mode === 'custom' && isStandardPMP) {
     const peopleTarget = Math.floor(config.questionCount * 0.33);
     const processTarget = Math.floor(config.questionCount * 0.41);
     const businessTarget = config.questionCount - peopleTarget - processTarget;
 
-    const peoplePool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('people')));
-    const processPool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('process')));
-    const businessPool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('business')));
+    const peoplePool = shuffle(pool.filter(q => normalizeDomain(q.domain) === 'People'));
+    const processPool = shuffle(pool.filter(q => normalizeDomain(q.domain) === 'Process'));
+    const businessPool = shuffle(pool.filter(q => normalizeDomain(q.domain) === 'Business Environment'));
 
     finalQuestions = [
       ...peoplePool.slice(0, peopleTarget),
@@ -139,15 +169,6 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
   let correctCount = 0;
   let totalPoints = 0;
   const domainStats: Record<string, { total: number, correct: number }> = {};
-
-  // Hàm chuẩn hóa tên domain để thống kê chính xác
-  const normalizeDomain = (d: string) => {
-    const lower = (d || '').toLowerCase();
-    if (lower.includes('people')) return 'People';
-    if (lower.includes('process')) return 'Process';
-    if (lower.includes('business')) return 'Business Environment';
-    return d || 'Uncategorized';
-  };
 
   questions.forEach(q => {
     const normalizedDomain = normalizeDomain(q.domain);
@@ -235,15 +256,3 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
     domainStats
   };
 };
-
-/**
- * Hàm xáo trộn mảng
- */
-function shuffle<T>(array: T[]): T[] {
-  const newArr = [...array];
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-  }
-  return newArr;
-}

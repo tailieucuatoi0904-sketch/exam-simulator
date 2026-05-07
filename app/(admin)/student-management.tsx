@@ -68,8 +68,12 @@ export default function StudentManagementScreen() {
 
           if (!map[uid]) map[uid] = { examCount: 0, passCount: 0, avgScore: 0, correctCount: countsMap[uid] || 0 };
           map[uid].examCount++;
-          if (record.results?.pass) map[uid].passCount++;
-          map[uid].avgScore += record.results?.percentage || 0;
+          
+          // Hỗ trợ cả h.results.pass (mới) và h.pass (cũ)
+          if (record.results?.pass === true || record.pass === true) map[uid].passCount++;
+          
+          // Hỗ trợ cả h.results.percentage (mới) và h.percentage (cũ)
+          map[uid].avgScore += record.results?.percentage || record.percentage || 0;
         });
 
         const { calculateDomainProficiency } = await import('../../services/analyticsService');

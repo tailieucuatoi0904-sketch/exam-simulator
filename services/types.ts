@@ -19,7 +19,7 @@ export interface Question {
 }
 
 export interface ExamConfig {
-  mode: 'custom' | 'domain' | 'eco' | 'incorrect';
+  mode: 'custom' | 'domain' | 'eco' | 'incorrect' | 'retake';
   questionCount: number;
   timeLimit: number;
   selectedDomains?: string[];

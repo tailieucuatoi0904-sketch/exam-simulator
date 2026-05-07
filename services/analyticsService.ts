@@ -1,4 +1,4 @@
-import { Question } from './examEngine';
+import { Question, normalizeDomain } from './examEngine';
 
 // Định dạng dữ liệu trả về cho từng Domain
 export interface DomainProficiency {
@@ -29,15 +29,6 @@ export const getLevelColor = (level: DomainProficiency['level']): string => {
   }
 };
 
-// Chuẩn hóa tên Domain tránh lỗi gõ sai
-const normalizeDomain = (domain: string): string => {
-  const d = domain.trim().toLowerCase();
-  if (d === 'people') return 'People';
-  if (d === 'process') return 'Process';
-  if (d === 'business' || d === 'business environment') return 'Business Environment';
-  return 'Other'; // Cho các câu hỏi không rõ Domain
-};
-
 /**
  * Hàm phân tích toàn bộ lịch sử thi và trả về bản đồ năng lực theo từng Domain.
  * @param history Mảng các bài thi đã làm từ Firebase (exam_history)
@@ -53,21 +44,28 @@ export const calculateDomainProficiency = (history: any[]): Record<string, Domai
 
   // 2. Quét toàn bộ bài thi
   history.forEach(exam => {
-    // exam có cấu trúc: { questions: Question[], userAnswers: Record<string, string[]>, ... }
-    if (!exam.questions || !exam.userAnswers) return;
+    // Ưu tiên lấy questions từ results nếu có (đảm bảo đồng bộ)
+    const questions = exam.questions || exam.results?.questions || [];
+    const userAnswers = exam.userAnswers || {};
+    
+    if (questions.length === 0) return;
 
-    exam.questions.forEach((q: Question) => {
+    questions.forEach((q: Question) => {
       const normalizedDomain = normalizeDomain(q.domain || '');
-      const userAns = exam.userAnswers[q.id] || [];
+      const userAns = userAnswers[q.id] || [];
+      const correctAns = q.correctAnswers || [];
       
-      // Kiểm tra câu đúng (Đáp án học viên phải khớp hoàn toàn với đáp án đúng)
-      const isCorrect = userAns.length === q.correctAnswers.length && 
-                        userAns.every((val: string) => q.correctAnswers.includes(val));
+      // Logic kiểm tra câu đúng (hỗ trợ các loại câu hỏi cơ bản)
+      let isCorrect = false;
+      if (userAns.length > 0 && userAns.length === correctAns.length) {
+        isCorrect = userAns.every((val: string) => correctAns.includes(val));
+      }
 
-      // Cộng dồn
-      rawStats[normalizedDomain].total += 1;
+      // Cộng dồn vào domain tương ứng (nếu không nằm trong 3 domain chính thì vào 'Other')
+      const targetDomain = rawStats[normalizedDomain] ? normalizedDomain : 'Other';
+      rawStats[targetDomain].total += 1;
       if (isCorrect) {
-        rawStats[normalizedDomain].correct += 1;
+        rawStats[targetDomain].correct += 1;
       }
     });
   });
@@ -77,7 +75,6 @@ export const calculateDomainProficiency = (history: any[]): Record<string, Domai
   
   Object.keys(rawStats).forEach(domain => {
     const stat = rawStats[domain];
-    // Tránh lỗi chia cho 0
     const percentage = stat.total > 0 ? Math.round((stat.correct / stat.total) * 100) : 0;
     const level = stat.total > 0 ? getProficiencyLevel(percentage) : 'Needs Improvement';
 

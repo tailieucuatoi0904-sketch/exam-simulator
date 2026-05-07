@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, FlatList, TouchableOpacity, Platform, StatusBar, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { Theme } from '../../constants/theme';
-import { examStorage } from '../../services/storage';
-import { firebaseService } from '../../services/firebaseService';
 import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Theme } from '../../constants/theme';
+import { firebaseService } from '../../services/firebaseService';
+import { examStorage } from '../../services/storage';
 
 export default function HistoryTab() {
   const [history, setHistory] = useState<any[]>([]);
@@ -25,6 +25,35 @@ export default function HistoryTab() {
   const handleViewResult = (item: any) => {
     examStorage.saveExamData(item);
     router.push('/result-screen');
+  };
+
+  const handleRetake = (item: any) => {
+    const doRetake = () => {
+      examStorage.saveExamData(item);
+      router.push({
+        pathname: '/exam-screen',
+        params: {
+          mode: 'retake',
+          timeLimit: item.results?.timeLimit || item.timeLimit || 60,
+          questionCount: item.results?.total || item.totalQuestions || 0
+        }
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Bạn có muốn làm lại bài thi này với bộ câu hỏi cũ không?')) {
+        doRetake();
+      }
+    } else {
+      Alert.alert(
+        'Làm lại bài thi',
+        'Bạn có muốn làm lại bài thi này với bộ câu hỏi cũ không?',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Bắt đầu', onPress: doRetake }
+        ]
+      );
+    }
   };
 
   const formatDate = (date: any) => {
@@ -61,10 +90,17 @@ export default function HistoryTab() {
             {percentage.toFixed(0)}%
           </Text>
         </View>
-        
+
         <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailText}>Xem chi tiết & Chữa bài</Text>
-          <Ionicons name="chevron-forward" size={16} color={Theme.colors.primary} />
+          <TouchableOpacity style={styles.footerBtn} onPress={() => handleRetake(item)}>
+            <Ionicons name="refresh-circle" size={18} color={Theme.colors.success} />
+            <Text style={[styles.footerBtnText, { color: Theme.colors.success }]}>Làm lại</Text>
+          </TouchableOpacity>
+          <View style={styles.footerDivider} />
+          <TouchableOpacity style={styles.footerBtn} onPress={() => handleViewResult(item)}>
+            <Text style={styles.footerBtnText}>Chi tiết</Text>
+            <Ionicons name="chevron-forward" size={16} color={Theme.colors.primary} />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -139,14 +175,20 @@ const styles = StyleSheet.create({
   percentageText: { fontSize: 28, fontWeight: '800' },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.03)',
     paddingTop: Theme.spacing.m,
   },
-  viewDetailText: { fontSize: 13, color: Theme.colors.primary, fontWeight: '700' },
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  footerBtnText: { fontSize: 13, color: Theme.colors.primary, fontWeight: '700' },
+  footerDivider: { width: 1, height: 16, backgroundColor: Theme.colors.border },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: Theme.colors.textLight },
   emptyContainer: {

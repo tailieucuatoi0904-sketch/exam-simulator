@@ -58,7 +58,10 @@ export default function StudentDashboardScreen() {
           };
 
           if (cloudHistory.length > 0) {
-            const passCount = cloudHistory.filter((h: any) => h.pass).length;
+            const passCount = cloudHistory.filter((h: any) => {
+              // Hỗ trợ cả cấu trúc mới (h.results.pass) và cũ (h.pass)
+              return h.results?.pass === true || h.pass === true;
+            }).length;
             const rate = (passCount / cloudHistory.length) * 100;
             setStats({
               ...baseStats,

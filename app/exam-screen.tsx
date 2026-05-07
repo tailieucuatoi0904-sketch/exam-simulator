@@ -31,21 +31,52 @@ export default function ExamScreen() {
   const [timeLeft, setTimeLeft] = useState(config.timeLimit * 60); // seconds
   const [showGrid, setShowGrid] = useState(false); // Trạng thái ẩn hiện lưới câu hỏi
 
+  const isInitialized = React.useRef(false);
+
   // Initialize Exam - Chỉ chạy 1 lần duy nhất khi Mount
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     let isMounted = true;
     const init = async () => {
       setLoading(true);
-      setLoadingText('Đang kết nối...');
-
-      const withTimeout = (promise: Promise<any>, timeoutMs: number) => {
-        return Promise.race([
-          promise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
-        ]);
-      };
+      setLoadingText('Đang khởi tạo...');
 
       try {
+        // CHẾ ĐỘ LÀM LẠI (RETAKE) - Ưu tiên xử lý nhanh
+        if (config.mode === 'retake') {
+          setLoadingText('Đang lấy lại đề cũ...');
+          const oldData = examStorage.getExamData();
+          
+          if (!oldData) {
+            throw new Error('Không thể lấy dữ liệu từ bộ nhớ tạm (Storage Null)');
+          }
+
+          const questions = oldData.questions || (oldData.results && oldData.results.questions);
+          
+          if (questions && Array.isArray(questions) && questions.length > 0) {
+            if (isMounted) {
+              setSession({
+                questions: questions,
+                timeLimit: config.timeLimit
+              });
+              setLoading(false);
+            }
+            return;
+          } else {
+            console.error("Dữ liệu cũ không hợp lệ:", oldData);
+            throw new Error('Bộ câu hỏi cũ bị trống hoặc không đúng định dạng');
+          }
+        }
+
+        const withTimeout = (promise: Promise<any>, timeoutMs: number) => {
+          return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+          ]);
+        };
+
         // 1. Lấy kho câu hỏi từ Cloud
         if (isMounted) setLoadingText('Đang tải câu hỏi...');
         const cloudPool = await withTimeout(firebaseService.getQuestionsFromCloud(), 15000);
@@ -64,12 +95,13 @@ export default function ExamScreen() {
           forceIncludeIds = await withTimeout(firebaseService.getIncorrectQuestions(), 5000).catch(() => []);
         }
         
-        // 3. Sinh đề từ kho câu hỏi Cloud
+        // 3. Sinh đề thi
         if (isMounted) setLoadingText('Đang tạo đề thi...');
+        
         // @ts-ignore - Truyền thêm forceIncludeIds nếu có
         const newSession = generateExam(config, excludeIds, cloudPool.length > 0 ? cloudPool : undefined, forceIncludeIds);
         
-        if (!newSession.questions || newSession.questions.length === 0) {
+        if (!newSession || !newSession.questions || newSession.questions.length === 0) {
           if (isMounted) {
             setLoading(false);
             const reason = config.excludeCorrect ? " (Có thể do bạn đã làm đúng hết các câu này trước đó)" : "";
@@ -221,6 +253,8 @@ export default function ExamScreen() {
       // Lưu câu sai lên Cloud, xóa câu đúng khỏi danh sách sai trên Cloud
       if (incorrectIds.length > 0) {
         await firebaseService.saveIncorrectQuestions(incorrectIds);
+        // MỚI: Nếu làm sai, phải xóa khỏi danh sách câu đã làm đúng trước đó
+        await firebaseService.removeCorrectQuestions(incorrectIds);
       }
       
       if (correctIds.length > 0) {

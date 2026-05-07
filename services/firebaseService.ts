@@ -149,7 +149,7 @@ export const firebaseService = {
     }
   },
 
-  // 4b. Lưu danh sách câu hỏi ĐÃ LÀM ĐÚNG lên Cloud (để gạch bỏ trong tương lai)
+  // 4b. Lưu danh sách câu hỏi ĐÃ LÀM ĐÚNG lên Cloud
   saveCorrectQuestions: async (questionIds: string[]) => {
     const user = auth.currentUser;
     if (!user || questionIds.length === 0) return;
@@ -162,6 +162,23 @@ export const firebaseService = {
       await set(correctRef, newIds);
     } catch (e) {
       console.error("Lỗi lưu câu hỏi đúng:", e);
+    }
+  },
+
+  // 4bb. Xóa câu hỏi khỏi danh sách ĐÃ LÀM ĐÚNG (Khi làm sai lại)
+  removeCorrectQuestions: async (questionIds: string[]) => {
+    const user = auth.currentUser;
+    if (!user || questionIds.length === 0) return;
+    try {
+      const correctRef = ref(db, `correct_questions/${user.uid}`);
+      const snapshot = await get(correctRef);
+      if (snapshot.exists()) {
+        const currentIds: string[] = snapshot.val();
+        const newIds = currentIds.filter(id => !questionIds.includes(id));
+        await set(correctRef, newIds);
+      }
+    } catch (e) {
+      console.error("Lỗi xóa danh sách câu hỏi đúng:", e);
     }
   },
 

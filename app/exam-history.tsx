@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, FlatList, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, FlatList, TouchableOpacity, Platform, StatusBar, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Theme } from '../constants/theme';
 import { examStorage } from '../services/storage';
@@ -24,6 +24,35 @@ export default function ExamHistoryScreen() {
     router.push('/result-screen');
   };
 
+  const handleRetake = (item: any) => {
+    const doRetake = () => {
+      examStorage.saveExamData(item);
+      router.push({
+        pathname: '/exam-screen',
+        params: {
+          mode: 'retake',
+          timeLimit: item.results?.timeLimit || item.timeLimit || 60,
+          questionCount: item.results?.total || item.totalQuestions || 0
+        }
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Bạn có muốn làm lại bài thi này với bộ câu hỏi cũ không?')) {
+        doRetake();
+      }
+    } else {
+      Alert.alert(
+        'Làm lại bài thi',
+        'Bạn có muốn làm lại bài thi này với bộ câu hỏi cũ không?',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Bắt đầu', onPress: doRetake }
+        ]
+      );
+    }
+  };
+
   const formatDate = (date: any) => {
     return new Date(date).toLocaleDateString('vi-VN', {
       day: '2-digit',
@@ -42,7 +71,7 @@ export default function ExamHistoryScreen() {
     const isPass = item.results?.pass ?? item.pass ?? (percentage >= 70);
 
     return (
-      <TouchableOpacity style={styles.historyCard} onPress={() => handleViewResult(item)}>
+      <View style={styles.historyCard}>
         <View style={styles.cardHeader}>
           <View>
             <Text style={styles.dateText}>{formatDate(item.date)}</Text>
@@ -61,10 +90,17 @@ export default function ExamHistoryScreen() {
         </View>
         
         <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailText}>Xem chi tiết & Chữa bài</Text>
-          <Ionicons name="chevron-forward" size={16} color={Theme.colors.primary} />
+          <TouchableOpacity style={styles.footerBtn} onPress={() => handleRetake(item)}>
+            <Ionicons name="refresh-circle" size={20} color={Theme.colors.success} />
+            <Text style={[styles.footerBtnText, { color: Theme.colors.success }]}>Làm lại</Text>
+          </TouchableOpacity>
+          <View style={styles.footerDivider} />
+          <TouchableOpacity style={styles.footerBtn} onPress={() => handleViewResult(item)}>
+            <Text style={styles.footerBtnText}>Xem chi tiết</Text>
+            <Ionicons name="chevron-forward" size={16} color={Theme.colors.primary} />
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -137,14 +173,19 @@ const styles = StyleSheet.create({
   percentageText: { fontSize: 24, fontWeight: 'bold' },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
     paddingTop: Theme.spacing.m,
   },
-  viewDetailText: { fontSize: 12, color: Theme.colors.primary, fontWeight: '600' },
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  footerBtnText: { fontSize: 13, color: Theme.colors.primary, fontWeight: '600' },
+  footerDivider: { width: 1, height: 16, backgroundColor: Theme.colors.border },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
