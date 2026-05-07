@@ -68,11 +68,19 @@ export interface ExamSession {
 export const generateExam = (config: ExamConfig, excludeIds: string[] = [], questionsPool?: Question[], forceIncludeIds?: string[]): ExamSession => {
   let pool = questionsPool || [...mockPmpQuestions];
 
-  // 1. Lọc theo chế độ hoặc Domains đã chọn
+  // 1. Lọc theo chế độ hoặc Domains đã chọn (Robust Case-insensitive matching)
   if (config.selectedDomains && config.selectedDomains.length > 0) {
-    pool = pool.filter(q => config.selectedDomains?.includes(q.domain));
+    const targets = config.selectedDomains.map(d => d.toLowerCase());
+    pool = pool.filter(q => {
+      const qDomain = (q.domain || '').toLowerCase();
+      return targets.some(t => qDomain.includes(t) || t.includes(qDomain) || (t.includes('business') && qDomain.includes('business')));
+    });
   } else if (config.mode === 'domain' && config.selectedDomains) {
-    pool = pool.filter(q => config.selectedDomains?.includes(q.domain));
+    const targets = config.selectedDomains.map(d => d.toLowerCase());
+    pool = pool.filter(q => {
+      const qDomain = (q.domain || '').toLowerCase();
+      return targets.some(t => qDomain.includes(t) || t.includes(qDomain) || (t.includes('business') && qDomain.includes('business')));
+    });
   } else if (config.mode === 'eco' && config.selectedEcoTask) {
     const targetTask = config.selectedEcoTask.trim().toLowerCase();
     pool = pool.filter(q => (q.ecoTask || '').trim().toLowerCase() === targetTask);
@@ -89,14 +97,14 @@ export const generateExam = (config: ExamConfig, excludeIds: string[] = [], ques
   let finalQuestions: Question[] = [];
 
   if (config.mode === 'custom' && !config.selectedDomains) {
-    // 3. Trộn đề theo tỷ lệ PMI (Chỉ khi không chọn domain cụ thể)
+    // 3. Trộn đề theo tỷ lệ yêu cầu (People 33%, Process 41%, Business 26%)
     const peopleTarget = Math.floor(config.questionCount * 0.33);
     const processTarget = Math.floor(config.questionCount * 0.41);
     const businessTarget = config.questionCount - peopleTarget - processTarget;
 
-    const peoplePool = shuffle(pool.filter(q => q.domain.includes('People')));
-    const processPool = shuffle(pool.filter(q => q.domain.includes('Process')));
-    const businessPool = shuffle(pool.filter(q => q.domain.includes('Business')));
+    const peoplePool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('people')));
+    const processPool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('process')));
+    const businessPool = shuffle(pool.filter(q => (q.domain || '').toLowerCase().includes('business')));
 
     finalQuestions = [
       ...peoplePool.slice(0, peopleTarget),
@@ -132,10 +140,20 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
   let totalPoints = 0;
   const domainStats: Record<string, { total: number, correct: number }> = {};
 
+  // Hàm chuẩn hóa tên domain để thống kê chính xác
+  const normalizeDomain = (d: string) => {
+    const lower = (d || '').toLowerCase();
+    if (lower.includes('people')) return 'People';
+    if (lower.includes('process')) return 'Process';
+    if (lower.includes('business')) return 'Business Environment';
+    return d || 'Uncategorized';
+  };
+
   questions.forEach(q => {
+    const normalizedDomain = normalizeDomain(q.domain);
     // Khởi tạo stats cho domain nếu chưa có
-    if (!domainStats[q.domain]) {
-      domainStats[q.domain] = { total: 0, correct: 0 };
+    if (!domainStats[normalizedDomain]) {
+      domainStats[normalizedDomain] = { total: 0, correct: 0 };
     }
 
     const answers = userAnswers[q.id] || [];
@@ -153,7 +171,7 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
         
         subQuestions.forEach(sq => {
           totalPoints += 1;
-          domainStats[q.domain].total += 1;
+          domainStats[normalizedDomain].total += 1;
           
           const sqAns = (subAnswers as any)[sq.id] || [];
           const sqCorrect = sq.correctAnswers || [];
@@ -163,26 +181,26 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
           
           if (isSqCorrect) {
             correctCount += 1;
-            domainStats[q.domain].correct += 1;
+            domainStats[normalizedDomain].correct += 1;
           }
         });
       } else {
         // Fallback
         totalPoints += 1;
-        domainStats[q.domain].total += 1;
+        domainStats[normalizedDomain].total += 1;
         const safeAnswers = Array.isArray(answers) ? answers : [];
         const isCorrect = safeAnswers.length > 0 && 
                         safeAnswers.length === correctAns.length && 
                         safeAnswers.every(val => correctAns.includes(val));
         if (isCorrect) {
           correctCount += 1;
-          domainStats[q.domain].correct += 1;
+          domainStats[normalizedDomain].correct += 1;
         }
       }
     } else {
       // Câu hỏi bình thường
       totalPoints += 1;
-      domainStats[q.domain].total += 1;
+      domainStats[normalizedDomain].total += 1;
       let isCorrect = false;
 
       if (type === 'single' || type === 'multiple' || !type) {
@@ -202,7 +220,7 @@ export const calculateScore = (questions: Question[], userAnswers: Record<string
 
       if (isCorrect) {
         correctCount += 1;
-        domainStats[q.domain].correct += 1;
+        domainStats[normalizedDomain].correct += 1;
       }
     }
   });

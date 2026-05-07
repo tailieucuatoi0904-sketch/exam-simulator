@@ -2,7 +2,7 @@ import { db, auth } from '../config/firebaseConfig';
 import { ref, push, get, query, orderByChild, set } from 'firebase/database';
 import { Question } from './types';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 
 // Bộ nhớ đệm cục bộ để tăng tốc độ truy xuất dữ liệu từ Firebase
 const serviceCache: Record<string, {data: any, timestamp: number}> = {};
@@ -35,6 +35,17 @@ export const firebaseService = {
       return { success: true };
     } catch (e: any) {
       console.error("Lỗi tạo tài khoản:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 0b. Gửi email đặt lại mật khẩu
+  sendResetPasswordEmail: async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (e: any) {
+      console.error("Lỗi gửi email reset pass:", e);
       return { success: false, error: e.message };
     }
   },

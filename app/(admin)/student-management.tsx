@@ -33,6 +33,7 @@ export default function StudentManagementScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isDeletingHistory, setIsDeletingHistory] = useState(false);
   const [filterRole, setFilterRole] = useState<'all' | 'student' | 'admin'>('student');
+  const [isResettingPass, setIsResettingPass] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -160,6 +161,34 @@ export default function StudentManagementScreen() {
         setShowDetailModal(false);
       }
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedStudent || !selectedStudent.email) {
+      Alert.alert('Lỗi', 'Người dùng này không có địa chỉ email hợp lệ.');
+      return;
+    }
+
+    Alert.alert(
+      'Đặt lại mật khẩu',
+      `Hệ thống sẽ gửi một email hướng dẫn đặt lại mật khẩu tới ${selectedStudent.email}. Bạn có muốn tiếp tục?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Gửi Email', 
+          onPress: async () => {
+            setIsResettingPass(true);
+            const result = await firebaseService.sendResetPasswordEmail(selectedStudent.email);
+            setIsResettingPass(false);
+            if (result.success) {
+              Alert.alert('Thành công', 'Email đặt lại mật khẩu đã được gửi đi.');
+            } else {
+              Alert.alert('Lỗi', result.error || 'Không thể gửi email lúc này.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderStudentItem = ({ item }: { item: any }) => {
@@ -371,7 +400,7 @@ export default function StudentManagementScreen() {
               </View>
 
               {selectedStudent && (
-                <View style={styles.modalBody}>
+                <ScrollView style={styles.modalBody}>
                   <View style={styles.detailAvatar}>
                     <Text style={styles.detailAvatarText}>{selectedStudent.name.charAt(0).toUpperCase()}</Text>
                   </View>
@@ -422,6 +451,24 @@ export default function StudentManagementScreen() {
                     </View>
                   )}
 
+                  <View style={styles.adminActionZone}>
+                    <Text style={styles.sectionTitleSmall}>Quản trị tài khoản</Text>
+                    <TouchableOpacity 
+                      style={styles.resetPassBtn} 
+                      onPress={handleResetPassword}
+                      disabled={isResettingPass}
+                    >
+                      {isResettingPass ? (
+                        <ActivityIndicator color={Theme.colors.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name="mail-unread-outline" size={18} color={Theme.colors.primary} />
+                          <Text style={styles.resetPassText}>Gửi email đặt lại mật khẩu</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={styles.dangerZone}>
                     <Text style={styles.dangerTitle}>Vùng nguy hiểm</Text>
                     <TouchableOpacity 
@@ -440,7 +487,7 @@ export default function StudentManagementScreen() {
                     </TouchableOpacity>
                     <Text style={styles.dangerHint}>Hành động này không thể hoàn tác.</Text>
                   </View>
-                </View>
+                </ScrollView>
               )}
             </View>
           </View>
@@ -630,5 +677,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Theme.colors.textLight,
     fontWeight: '600',
-  }
+  },
+  adminActionZone: {
+    marginTop: Theme.spacing.l,
+    paddingTop: Theme.spacing.l,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  sectionTitleSmall: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.m,
+  },
+  resetPassBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: Theme.spacing.m,
+    borderRadius: Theme.borderRadius.m,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    backgroundColor: '#fff',
+  },
+  resetPassText: {
+    color: Theme.colors.primary,
+    fontWeight: 'bold',
+  },
 });

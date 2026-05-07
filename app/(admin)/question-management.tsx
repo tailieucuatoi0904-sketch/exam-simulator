@@ -220,75 +220,76 @@ export default function QuestionManagementScreen() {
         </View>
 
         <View style={styles.content}>
-          <View style={styles.importSection}>
-            <ExcelImporter onDataImported={handleImported} existingQuestions={questions} />
-          </View>
-
-          <View style={styles.adminActions}>
-            <TouchableOpacity style={styles.createBtn} onPress={handleCreateNewQuestion}>
-              <Ionicons name="add-circle-outline" size={16} color="#fff" />
-              <Text style={styles.createBtnText}>Tạo thủ công</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dedupBtn} onPress={handleRemoveDuplicates}>
-              <Ionicons name="copy-outline" size={16} color="#e67e22" />
-              <Text style={styles.dedupBtnText}>Xóa trùng</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteAllBtn} onPress={handleDeleteAll}>
-              <Ionicons name="trash-outline" size={16} color="#fff" />
-              <Text style={styles.deleteAllBtnText}>Xóa tất cả</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={Theme.colors.textLight} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm kiếm theo nội dung, ID, Domain..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={Theme.colors.textLight} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatVal}>{stats.people}</Text>
-              <Text style={styles.miniStatLabel}>People</Text>
-            </View>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatVal}>{stats.process}</Text>
-              <Text style={styles.miniStatLabel}>Process</Text>
-            </View>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatVal}>{stats.business}</Text>
-              <Text style={styles.miniStatLabel}>Business</Text>
-            </View>
-          </View>
-
           {loading ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: 300 }}>
               <ActivityIndicator size="large" color={Theme.colors.primary} />
               <Text style={{ marginTop: 10, color: Theme.colors.textLight }}>Đang tải kho câu hỏi từ Cloud...</Text>
             </View>
           ) : (
-            <>
-              <Text style={styles.sectionTitle}>Danh sách câu hỏi ({filteredQuestions.length})</Text>
-              
-              <FlatList
-                data={filteredQuestions}
-                renderItem={renderQuestionItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                removeClippedSubviews={Platform.OS === 'android'}
-              />
-            </>
+            <FlatList
+              data={filteredQuestions}
+              renderItem={renderQuestionItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.listContent}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS === 'android'}
+              ListHeaderComponent={
+                <View>
+                  <View style={styles.importSection}>
+                    <ExcelImporter onDataImported={handleImported} existingQuestions={questions} />
+                  </View>
+
+                  <View style={styles.adminActions}>
+                    <TouchableOpacity style={styles.createBtn} onPress={handleCreateNewQuestion}>
+                      <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                      <Text style={styles.createBtnText}>Tạo thủ công</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.dedupBtn} onPress={handleRemoveDuplicates}>
+                      <Ionicons name="copy-outline" size={16} color="#e67e22" />
+                      <Text style={styles.dedupBtnText}>Xóa trùng</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteAllBtn} onPress={handleDeleteAll}>
+                      <Ionicons name="trash-outline" size={16} color="#fff" />
+                      <Text style={styles.deleteAllBtnText}>Xóa tất cả</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.searchBar}>
+                    <Ionicons name="search" size={20} color={Theme.colors.textLight} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Tìm kiếm theo nội dung, ID, Domain..."
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <Ionicons name="close-circle" size={18} color={Theme.colors.textLight} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.statsRow}>
+                    <View style={styles.miniStat}>
+                      <Text style={styles.miniStatVal}>{stats.people}</Text>
+                      <Text style={styles.miniStatLabel}>People</Text>
+                    </View>
+                    <View style={styles.miniStat}>
+                      <Text style={styles.miniStatVal}>{stats.process}</Text>
+                      <Text style={styles.miniStatLabel}>Process</Text>
+                    </View>
+                    <View style={styles.miniStat}>
+                      <Text style={styles.miniStatVal}>{stats.business}</Text>
+                      <Text style={styles.miniStatLabel}>Business</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.sectionTitle}>Danh sách câu hỏi ({filteredQuestions.length})</Text>
+                </View>
+              }
+            />
           )}
         </View>
       </View>
