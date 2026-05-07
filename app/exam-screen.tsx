@@ -24,6 +24,7 @@ export default function ExamScreen() {
 
   const [session, setSession] = useState<{ questions: Question[], timeLimit: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingText, setLoadingText] = useState('Đang khởi tạo...');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string[]>>({});
   const [flags, setFlags] = useState<Record<string, boolean>>({});
@@ -32,37 +33,65 @@ export default function ExamScreen() {
 
   // Initialize Exam - Chỉ chạy 1 lần duy nhất khi Mount
   useEffect(() => {
+    let isMounted = true;
     const init = async () => {
       setLoading(true);
+      setLoadingText('Đang kết nối...');
+
+      const withTimeout = (promise: Promise<any>, timeoutMs: number) => {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+        ]);
+      };
+
       try {
         // 1. Lấy kho câu hỏi từ Cloud
-        const cloudPool = await firebaseService.getQuestionsFromCloud();
+        if (isMounted) setLoadingText('Đang tải câu hỏi...');
+        const cloudPool = await withTimeout(firebaseService.getQuestionsFromCloud(), 15000);
         
-        // 2. Lấy danh sách ID đã làm đúng (nếu cần loại bỏ)
+        // 2. Lấy danh sách ID đặc biệt từ Cloud (đúng/sai)
         let excludeIds: string[] = [];
+        let forceIncludeIds: string[] | undefined = undefined;
+
         if (config.excludeCorrect) {
-          excludeIds = await firebaseService.getCorrectQuestions();
+          if (isMounted) setLoadingText('Đang lọc câu đã làm...');
+          excludeIds = await withTimeout(firebaseService.getCorrectQuestions(), 5000).catch(() => []);
+        }
+
+        if (config.mode === 'incorrect') {
+          if (isMounted) setLoadingText('Đang tải danh sách câu sai...');
+          forceIncludeIds = await withTimeout(firebaseService.getIncorrectQuestions(), 5000).catch(() => []);
         }
         
         // 3. Sinh đề từ kho câu hỏi Cloud
-        const newSession = generateExam(config, excludeIds, cloudPool.length > 0 ? cloudPool : undefined);
+        if (isMounted) setLoadingText('Đang tạo đề thi...');
+        // @ts-ignore - Truyền thêm forceIncludeIds nếu có
+        const newSession = generateExam(config, excludeIds, cloudPool.length > 0 ? cloudPool : undefined, forceIncludeIds);
         
         if (!newSession.questions || newSession.questions.length === 0) {
-          const reason = config.excludeCorrect ? " (Có thể do bạn đã làm đúng hết các câu này trước đó)" : "";
-          Alert.alert("Thông báo", `Không tìm thấy câu hỏi nào phù hợp với tiêu chí đã chọn${reason}. Vui lòng kiểm tra lại kho dữ liệu hoặc tắt bộ lọc 'Gạch bỏ câu đúng'.`);
-          router.back();
+          if (isMounted) {
+            setLoading(false);
+            const reason = config.excludeCorrect ? " (Có thể do bạn đã làm đúng hết các câu này trước đó)" : "";
+            Alert.alert("Thông báo", `Không tìm thấy câu hỏi nào phù hợp với tiêu chí đã chọn${reason}. Vui lòng kiểm tra lại kho dữ liệu hoặc tắt bộ lọc 'Gạch bỏ câu đúng'.`);
+            router.back();
+          }
           return;
         }
 
-        setSession(newSession);
+        if (isMounted) setSession(newSession);
       } catch (error) {
         console.error("Lỗi khởi tạo đề thi:", error);
-        Alert.alert("Lỗi", "Không thể tải dữ liệu câu hỏi từ Cloud.");
+        if (isMounted) {
+          Alert.alert("Lỗi kết nối", "Không thể tải dữ liệu câu hỏi từ Cloud. Vui lòng kiểm tra kết nối mạng.");
+          router.back();
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     init();
+    return () => { isMounted = false; };
   }, []);
 
   // Timer Logic
@@ -88,15 +117,25 @@ export default function ExamScreen() {
     const currentQuestion = session?.questions[currentIndex];
     if (!currentQuestion) return;
 
-    if (currentQuestion.type === 'single') {
+    if (currentQuestion.type === 'single' || currentQuestion.type === 'hotspot') {
+      setUserAnswers(prev => ({ ...prev, [currentQuestion.id]: [optionId] }));
+    } else if (currentQuestion.type === 'fill_blank') {
       setUserAnswers(prev => ({ ...prev, [currentQuestion.id]: [optionId] }));
     } else {
+      // multiple: toggle
       const currentSelected = userAnswers[currentQuestion.id] || [];
       const newSelected = currentSelected.includes(optionId)
         ? currentSelected.filter(id => id !== optionId)
         : [...currentSelected, optionId];
       setUserAnswers(prev => ({ ...prev, [currentQuestion.id]: newSelected }));
     }
+  };
+
+  // Handler cho câu hỏi tương tác (drag_drop, matching)
+  const handleInteractiveAnswer = (answer: string[]) => {
+    const currentQuestion = session?.questions[currentIndex];
+    if (!currentQuestion) return;
+    setUserAnswers(prev => ({ ...prev, [currentQuestion.id]: answer }));
   };
 
   const toggleFlag = () => {
@@ -148,8 +187,30 @@ export default function ExamScreen() {
       const correctIds: string[] = [];
       
       session.questions.forEach(q => {
+        let isCorrect = false;
         const answers = userAnswers[q.id] || [];
-        const isCorrect = answers.length === q.correctAnswers.length && answers.every(val => q.correctAnswers.includes(val));
+        const correctAns = q.correctAnswers || [];
+
+        if (q.type === 'single' || q.type === 'multiple' || !q.type) {
+          isCorrect = answers.length > 0 && answers.length === correctAns.length && answers.every(val => correctAns.includes(val));
+        } else if (q.type === 'fill_blank') {
+          // Case-insensitive comparison for fill-in-the-blank
+          isCorrect = correctAns.some(ans => ans.trim().toLowerCase() === (answers[0] || '').trim().toLowerCase());
+        } else if (q.type === 'hotspot') {
+          isCorrect = answers.length > 0 && correctAns.includes(answers[0]);
+        } else if (q.type === 'drag_drop') {
+          // Must match exact order
+          isCorrect = answers.length === correctAns.length && answers.every((val, idx) => val === correctAns[idx]);
+        } else if (q.type === 'matching') {
+          // Both must contain same pairs regardless of order
+          const correctSet = new Set(correctAns);
+          isCorrect = answers.length === correctAns.length && answers.every(pair => correctSet.has(pair));
+        } else if (q.type === 'case_set') {
+          isCorrect = answers.length > 0 && answers.length === correctAns.length && answers.every(val => correctAns.includes(val));
+        } else {
+          isCorrect = false;
+        }
+
         if (isCorrect) {
           correctIds.push(q.id);
         } else {
@@ -164,9 +225,8 @@ export default function ExamScreen() {
       
       if (correctIds.length > 0) {
         await firebaseService.saveCorrectQuestions(correctIds);
-        for (const id of correctIds) {
-          await firebaseService.removeIncorrectQuestion(id);
-        }
+        // Xóa hàng loạt câu đúng khỏi danh sách câu sai
+        await firebaseService.removeIncorrectQuestions(correctIds);
       }
 
       const examData = {
@@ -188,11 +248,11 @@ export default function ExamScreen() {
     }
   };
 
-  if (loading || !session) {
+  if (loading || !session || !session.questions || session.questions.length === 0) {
     return (
-      <View style={styles.loading}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={{ marginTop: 12, color: Theme.colors.textLight }}>Đang khởi tạo đề thi...</Text>
+        <Text style={styles.loadingText}>{loadingText}</Text>
       </View>
     );
   }
@@ -228,13 +288,19 @@ export default function ExamScreen() {
 
       <ScrollView style={styles.content}>
         <QuestionCard 
+          key={currentQuestion.id}
+          questionId={currentQuestion.id}
           questionNumber={currentIndex + 1}
           totalQuestions={session.questions.length}
           questionText={currentQuestion.questionText}
-          options={currentQuestion.options}
+          options={currentQuestion.options || []}
           selectedOptionIds={userAnswers[currentQuestion.id] || []}
           onSelectOption={handleSelectOption}
-          isMultipleChoice={currentQuestion.type === 'multiple'}
+          isMultipleChoice={currentQuestion.type === 'multiple' || currentQuestion.type === 'case_set'}
+          type={currentQuestion.type}
+          mediaUrl={currentQuestion.mediaUrl}
+          interactiveData={currentQuestion.interactiveData}
+          onInteractiveAnswer={handleInteractiveAnswer}
         />
       </ScrollView>
 
@@ -346,66 +412,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.l,
     paddingVertical: Theme.spacing.m,
     backgroundColor: Theme.colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
+    zIndex: 10,
   },
-  exitButton: { padding: 4 },
-  gridButton: { padding: 4 },
+  exitButton: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: Theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridButton: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: Theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(67, 97, 238, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(67, 97, 238, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(67, 97, 238, 0.1)',
   },
   timerText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '800',
     color: Theme.colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   submitHeaderButton: {
-    backgroundColor: Theme.colors.success,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   submitHeaderButtonText: {
     color: Theme.colors.textInverse,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  progressBar: {
-    height: 4,
+    fontWeight: '800',
+    fontSize: 13,
+    textTransform: 'uppercase',
   },
   content: {
     flex: 1,
-    padding: Theme.spacing.l,
+    padding: Theme.spacing.m,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Theme.spacing.l,
+    paddingHorizontal: Theme.spacing.l,
+    paddingVertical: Theme.spacing.m,
     backgroundColor: Theme.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 10,
   },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(67, 97, 238, 0.05)',
   },
-  disabledNav: { opacity: 0.5 },
+  disabledNav: { opacity: 0.3 },
   navText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: Theme.colors.primary,
   },
   flagButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.03)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -490,5 +586,17 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 12,
     color: Theme.colors.textLight,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: Theme.colors.textLight,
+    fontSize: 16,
+    fontWeight: '500',
   }
 });

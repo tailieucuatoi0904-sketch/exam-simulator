@@ -1,5 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../constants/theme';
 
 interface CustomButtonProps {
@@ -36,6 +37,36 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
     return Theme.colors.textInverse;
   };
 
+  const renderContent = () => (
+    <Text style={[
+      styles.text,
+      { color: getTextColor() },
+      textStyle
+    ]}>
+      {title}
+    </Text>
+  );
+
+  if (type === 'primary' && !disabled) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.8}
+        style={[styles.container, style]}
+      >
+        <LinearGradient
+          colors={Theme.colors.primaryGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.button}
+        >
+          {renderContent()}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[
@@ -48,29 +79,27 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
       disabled={disabled}
       activeOpacity={0.8}
     >
-      <Text style={[
-        styles.text,
-        { color: getTextColor() },
-        textStyle
-      ]}>
-        {title}
-      </Text>
+      {renderContent()}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    borderRadius: Theme.borderRadius.m,
+    overflow: 'hidden',
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 6,
+  },
   button: {
     paddingVertical: Theme.spacing.m,
     paddingHorizontal: Theme.spacing.l,
     borderRadius: Theme.borderRadius.m,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   outlineButton: {
     borderWidth: 2,
@@ -80,6 +109,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: Theme.typography.h3.fontSize,
-    fontWeight: 'bold', // using string 'bold' instead of pulling from Theme to avoid TS issues
+    fontWeight: 'bold',
   },
 });

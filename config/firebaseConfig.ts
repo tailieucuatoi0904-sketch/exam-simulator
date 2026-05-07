@@ -7,7 +7,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBHP6gKN_3rOkhXxENJKBeeq-nzsG2pZzg",
   authDomain: "pmp-exam-simulator-7d8dd.firebaseapp.com",
   projectId: "pmp-exam-simulator-7d8dd",
-  storageBucket: "pmp-exam-simulator-7d8dd.firebasestorage.app",
+  storageBucket: "pmp-exam-simulator-7d8dd.appspot.com",
   messagingSenderId: "433935864728",
   appId: "1:433935864728:web:fad52e591dadc118ced1ed",
   measurementId: "G-J415NNQ5WR",

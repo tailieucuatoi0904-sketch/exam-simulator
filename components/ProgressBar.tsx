@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../constants/theme';
 
 interface ProgressBarProps {
@@ -15,16 +16,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   color = Theme.colors.primary,
   backgroundColor = Theme.colors.border,
 }) => {
-  // Ensure progress is bounded between 0 and 1
   const safeProgress = Math.min(Math.max(progress, 0), 1);
-  
   const animatedWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(animatedWidth, {
+    Animated.spring(animatedWidth, {
       toValue: safeProgress,
-      duration: 300,
-      useNativeDriver: false, // width animation doesn't support native driver
+      friction: 8,
+      tension: 40,
+      useNativeDriver: false,
     }).start();
   }, [safeProgress]);
 
@@ -38,12 +38,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       <Animated.View 
         style={[
           styles.fill, 
-          { 
-            backgroundColor: color,
-            width: widthInterpolated 
-          }
-        ]} 
-      />
+          { width: widthInterpolated }
+        ]}
+      >
+        <LinearGradient
+          colors={Theme.colors.primaryGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
     </View>
   );
 };
@@ -53,9 +57,11 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: Theme.borderRadius.round,
     overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   fill: {
     height: '100%',
     borderRadius: Theme.borderRadius.round,
+    overflow: 'hidden',
   },
 });

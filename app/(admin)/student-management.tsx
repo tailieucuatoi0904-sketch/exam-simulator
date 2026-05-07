@@ -24,13 +24,15 @@ export default function StudentManagementScreen() {
 
   // State cho Modal tạo học viên
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '', role: 'student' as 'student' | 'admin' });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreating, setIsCreating] = useState(false);
 
   // State cho Modal chi tiết học viên
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [filterRole, setFilterRole] = useState<'all' | 'student' | 'admin'>('student');
 
   useEffect(() => {
     const loadData = async () => {
@@ -38,15 +40,14 @@ export default function StudentManagementScreen() {
       try {
         // 1. Lấy danh sách users thật từ Firebase
         const allUsers = await firebaseService.getAllUsers();
-        const studentList = allUsers.filter(u => u.role === 'student');
-        setStudents(studentList);
+        setStudents(allUsers);
 
         // 2. Lấy toàn bộ lịch sử thi từ Realtime DB
         const allHistory = await firebaseService.getAllExamHistory();
         setTotalExams(allHistory.length);
 
         // 3. Tổng hợp thống kê theo từng userId
-        const map: Record<string, StudentStats & { correctCount: number }> = {};
+        const map: Record<string, StudentStats & { correctCount: number; domainStats?: any }> = {};
         
         // Fetch correct counts for each student using firebaseService
         const correctCounts = await Promise.all(studentList.map(async (s) => {
@@ -57,18 +58,28 @@ export default function StudentManagementScreen() {
         const countsMap: Record<string, number> = {};
         correctCounts.forEach(c => countsMap[c.id] = c.count);
 
+        const historyByUser: Record<string, any[]> = {};
+
         allHistory.forEach((record: any) => {
           const uid = record.userId || 'unknown';
+          if (!historyByUser[uid]) historyByUser[uid] = [];
+          historyByUser[uid].push(record);
+
           if (!map[uid]) map[uid] = { examCount: 0, passCount: 0, avgScore: 0, correctCount: countsMap[uid] || 0 };
           map[uid].examCount++;
           if (record.results?.pass) map[uid].passCount++;
           map[uid].avgScore += record.results?.percentage || 0;
         });
 
-        // 4. Tính điểm trung bình
+        const { calculateDomainProficiency } = await import('../../services/analyticsService');
+
+        // 4. Tính điểm trung bình và phân tích Năng lực
         Object.keys(map).forEach(uid => {
           if (map[uid].examCount > 0) {
             map[uid].avgScore = map[uid].avgScore / map[uid].examCount;
+            if (historyByUser[uid]) {
+              map[uid].domainStats = calculateDomainProficiency(historyByUser[uid]);
+            }
           }
         });
 
@@ -84,30 +95,38 @@ export default function StudentManagementScreen() {
   }, []);
 
   const handleCreateStudent = async () => {
-    if (!newStudent.name || !newStudent.email || !newStudent.password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin.');
-      return;
+    const newErrors: Record<string, string> = {};
+    if (!newStudent.name.trim()) newErrors.name = 'Vui lòng nhập họ tên.';
+    if (!newStudent.email.trim()) newErrors.email = 'Vui lòng nhập email.';
+    if (!newStudent.password.trim()) {
+      newErrors.password = 'Vui lòng nhập mật khẩu.';
+    } else if (newStudent.password.length < 6) {
+      newErrors.password = 'Mật khẩu phải từ 6 ký tự trở lên.';
     }
-    if (newStudent.password.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải từ 6 ký tự trở lên.');
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    setErrors({});
+
     setIsCreating(true);
-    const result = await firebaseService.createStudentAccount(
+    const result = await firebaseService.createAccount(
       newStudent.email,
       newStudent.password,
-      newStudent.name
+      newStudent.name,
+      newStudent.role
     );
     setIsCreating(false);
 
     if (result.success) {
       Alert.alert('Thành công', `Đã tạo tài khoản cho ${newStudent.name}`);
       setShowCreateModal(false);
-      setNewStudent({ name: '', email: '', password: '' });
+      setNewStudent({ name: '', email: '', password: '', role: 'student' });
       // Reload danh sách
       const allUsers = await firebaseService.getAllUsers();
-      setStudents(allUsers.filter(u => u.role === 'student'));
+      setStudents(allUsers);
     } else {
       Alert.alert('Lỗi', result.error || 'Không thể tạo tài khoản.');
     }
@@ -155,7 +174,14 @@ export default function StudentManagementScreen() {
         </View>
 
         <View style={styles.studentInfo}>
-          <Text style={styles.studentName}>{item.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.studentName}>{item.name}</Text>
+            {item.role === 'admin' && (
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>Admin</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.studentEmail}>{item.email || item.username}</Text>
         </View>
 
@@ -210,13 +236,29 @@ export default function StudentManagementScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Danh sách học viên</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Theme.spacing.m }}>
+            <Text style={styles.sectionTitle}>Danh sách người dùng</Text>
+            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 20, padding: 2 }}>
+              <TouchableOpacity 
+                style={[styles.filterChip, filterRole === 'student' && styles.filterChipActive]} 
+                onPress={() => setFilterRole('student')}
+              >
+                <Text style={[styles.filterChipText, filterRole === 'student' && { color: '#fff' }]}>Học viên</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.filterChip, filterRole === 'all' && styles.filterChipActive]} 
+                onPress={() => setFilterRole('all')}
+              >
+                <Text style={[styles.filterChipText, filterRole === 'all' && { color: '#fff' }]}>Tất cả</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {loading ? (
             <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <FlatList
-              data={students}
+              data={students.filter(u => filterRole === 'all' ? true : u.role === filterRole)}
               renderItem={renderStudentItem}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.listContent}
@@ -240,36 +282,69 @@ export default function StudentManagementScreen() {
 
               <ScrollView style={styles.modalBody}>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Họ và tên</Text>
+                  <Text style={[styles.label, errors.name && { color: Theme.colors.error }]}>Họ và tên</Text>
                   <TextInput 
-                    style={styles.input} 
+                    style={[styles.input, errors.name && styles.inputError]} 
                     value={newStudent.name}
-                    onChangeText={t => setNewStudent(p => ({ ...p, name: t }))}
+                    onChangeText={t => {
+                      setNewStudent(p => ({ ...p, name: t }));
+                      if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+                    }}
                     placeholder="Ví dụ: Nguyễn Văn A"
                   />
+                  {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email (Tài khoản)</Text>
+                  <Text style={[styles.label, errors.email && { color: Theme.colors.error }]}>Email (Tài khoản)</Text>
                   <TextInput 
-                    style={styles.input} 
+                    style={[styles.input, errors.email && styles.inputError]} 
                     value={newStudent.email}
-                    onChangeText={t => setNewStudent(p => ({ ...p, email: t }))}
+                    onChangeText={t => {
+                      setNewStudent(p => ({ ...p, email: t }));
+                      if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+                    }}
                     placeholder="student@gmail.com"
                     autoCapitalize="none"
                     keyboardType="email-address"
                   />
+                  {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Mật khẩu</Text>
+                  <Text style={[styles.label, errors.password && { color: Theme.colors.error }]}>Mật khẩu</Text>
                   <TextInput 
-                    style={styles.input} 
+                    style={[styles.input, errors.password && styles.inputError]} 
                     value={newStudent.password}
-                    onChangeText={t => setNewStudent(p => ({ ...p, password: t }))}
+                    onChangeText={t => {
+                      setNewStudent(p => ({ ...p, password: t }));
+                      if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+                    }}
                     placeholder="Ít nhất 6 ký tự"
                     secureTextEntry
                   />
+                  {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Phân loại tài khoản</Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity 
+                      style={[styles.roleChip, newStudent.role === 'student' && styles.roleChipSelected]}
+                      onPress={() => setNewStudent(p => ({ ...p, role: 'student' }))}
+                    >
+                      <Ionicons name="people" size={16} color={newStudent.role === 'student' ? '#fff' : Theme.colors.textLight} />
+                      <Text style={[styles.roleChipText, newStudent.role === 'student' && { color: '#fff' }]}>Học viên</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.roleChip, newStudent.role === 'admin' && styles.roleChipSelectedAdmin]}
+                      onPress={() => setNewStudent(p => ({ ...p, role: 'admin' }))}
+                    >
+                      <Ionicons name="shield-checkmark" size={16} color={newStudent.role === 'admin' ? '#fff' : Theme.colors.textLight} />
+                      <Text style={[styles.roleChipText, newStudent.role === 'admin' && { color: '#fff' }]}>Quản trị viên</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {isCreating ? (
@@ -313,6 +388,39 @@ export default function StudentManagementScreen() {
                       <Text style={styles.detailStatLabel}>Điểm TB</Text>
                     </View>
                   </View>
+
+                  {/* Phân tích Năng lực (Domain Analysis) */}
+                  {statsMap[selectedStudent.id]?.domainStats && (
+                    <View style={styles.analysisZone}>
+                      <Text style={styles.analysisTitle}><Ionicons name="analytics" size={16} color={Theme.colors.primary} /> Phân tích Năng lực</Text>
+                      
+                      {(() => {
+                        const dStats = Object.values(statsMap[selectedStudent.id].domainStats as Record<string, any>);
+                        if (dStats.length === 0) return <Text style={styles.dangerHint}>Chưa có đủ dữ liệu để phân tích.</Text>;
+                        
+                        // Sort by percentage to find strongest and weakest
+                        const sorted = [...dStats].sort((a, b) => b.percentage - a.percentage);
+                        const strongest = sorted[0];
+                        const weakest = sorted[sorted.length - 1];
+
+                        return (
+                          <View style={styles.analysisBox}>
+                            <View style={styles.analysisItem}>
+                              <Text style={styles.analysisLabel}>Mạnh nhất</Text>
+                              <Text style={[styles.analysisValue, { color: Theme.colors.success }]}>{strongest.domain}</Text>
+                              <Text style={styles.analysisSub}>({strongest.percentage}%) - {strongest.level}</Text>
+                            </View>
+                            <View style={styles.analysisDivider} />
+                            <View style={styles.analysisItem}>
+                              <Text style={styles.analysisLabel}>Yếu nhất</Text>
+                              <Text style={[styles.analysisValue, { color: Theme.colors.error }]}>{weakest.domain}</Text>
+                              <Text style={styles.analysisSub}>({weakest.percentage}%) - {weakest.level}</Text>
+                            </View>
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  )}
 
                   <View style={styles.dangerZone}>
                     <Text style={styles.dangerTitle}>Vùng nguy hiểm</Text>
@@ -431,6 +539,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: Theme.colors.background,
   },
+  inputError: {
+    borderColor: Theme.colors.error,
+    backgroundColor: 'rgba(238, 67, 67, 0.05)',
+  },
+  errorText: {
+    color: Theme.colors.error,
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
   createBtn: {
     backgroundColor: Theme.colors.primary,
     padding: Theme.spacing.l,
@@ -449,9 +567,68 @@ const styles = StyleSheet.create({
   detailStatBox: { flex: 1, backgroundColor: Theme.colors.background, padding: Theme.spacing.m, borderRadius: Theme.borderRadius.m, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
   detailStatVal: { fontSize: 20, fontWeight: 'bold', color: Theme.colors.primary },
   detailStatLabel: { fontSize: 11, color: Theme.colors.textLight },
+  analysisZone: { backgroundColor: '#f8f9fa', borderRadius: Theme.borderRadius.m, padding: Theme.spacing.m, marginBottom: Theme.spacing.m, borderWidth: 1, borderColor: Theme.colors.border },
+  analysisTitle: { fontSize: 14, fontWeight: 'bold', color: Theme.colors.primary, marginBottom: Theme.spacing.m },
+  analysisBox: { flexDirection: 'row', justifyContent: 'space-between' },
+  analysisItem: { flex: 1, alignItems: 'center' },
+  analysisLabel: { fontSize: 11, color: Theme.colors.textLight, textTransform: 'uppercase', marginBottom: 4 },
+  analysisValue: { fontSize: 14, fontWeight: 'bold', textAlign: 'center' },
+  analysisSub: { fontSize: 11, color: Theme.colors.textLight, marginTop: 2, textAlign: 'center' },
+  analysisDivider: { width: 1, backgroundColor: Theme.colors.border, marginHorizontal: Theme.spacing.m },
   dangerZone: { borderTopWidth: 1, borderTopColor: Theme.colors.border, paddingTop: Theme.spacing.l, marginTop: Theme.spacing.m },
   dangerTitle: { fontSize: 14, fontWeight: 'bold', color: Theme.colors.error, marginBottom: Theme.spacing.m },
   deleteHistoryBtn: { backgroundColor: Theme.colors.error, padding: Theme.spacing.m, borderRadius: Theme.borderRadius.m, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   deleteHistoryText: { color: '#fff', fontWeight: 'bold' },
   dangerHint: { fontSize: 11, color: Theme.colors.textLight, textAlign: 'center', marginTop: 8 },
+  roleChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Theme.borderRadius.m,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
+  },
+  roleChipSelected: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  roleChipSelectedAdmin: {
+    backgroundColor: Theme.colors.warning,
+    borderColor: Theme.colors.warning,
+  },
+  roleChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.colors.textLight,
+  },
+  adminBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.warning,
+  },
+  adminBadgeText: {
+    color: Theme.colors.warning,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 18,
+  },
+  filterChipActive: {
+    backgroundColor: Theme.colors.primary,
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: Theme.colors.textLight,
+    fontWeight: '600',
+  }
 });

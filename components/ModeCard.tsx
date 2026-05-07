@@ -22,16 +22,18 @@ export const ModeCard: React.FC<ModeCardProps> = ({
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={iconName} size={32} color={color} />
+      <View style={[styles.iconContainer, { backgroundColor: `${color}10` }]}>
+        <Ionicons name={iconName} size={28} color={color} />
       </View>
       <View style={styles.textContainer}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={24} color={Theme.colors.textLight} />
+      <View style={styles.arrowContainer}>
+        <Ionicons name="chevron-forward" size={20} color={Theme.colors.textLight} />
+      </View>
     </TouchableOpacity>
   );
 };
@@ -41,21 +43,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.surface,
-    padding: Theme.spacing.l,
-    borderRadius: Theme.borderRadius.l,
+    padding: Theme.spacing.m,
+    borderRadius: Theme.borderRadius.xl,
     marginBottom: Theme.spacing.m,
     shadowColor: Theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)',
+    borderColor: 'rgba(67, 97, 238, 0.05)',
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Theme.spacing.m,
@@ -65,14 +67,22 @@ const styles = StyleSheet.create({
     marginRight: Theme.spacing.s,
   },
   title: {
-    fontSize: Theme.typography.h3.fontSize,
-    fontWeight: 'bold', // Avoid TS errors with string literal
+    fontSize: 17,
+    fontWeight: '700',
     color: Theme.colors.text,
     marginBottom: 4,
   },
   description: {
-    fontSize: Theme.typography.caption.fontSize,
+    fontSize: 13,
     color: Theme.colors.textLight,
-    lineHeight: 20,
+    lineHeight: 18,
   },
+  arrowContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

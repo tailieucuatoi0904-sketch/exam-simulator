@@ -10,26 +10,32 @@ export default function DomainPracticeModal() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState('');
   const [timeLimit, setTimeLimit] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [excludeCorrect, setExcludeCorrect] = useState(false);
 
   const handleStartExam = () => {
-    if (!selectedDomain) {
-      Alert.alert('Lỗi', 'Vui lòng chọn 1 Domain để luyện tập.');
-      return;
-    }
-
+    const newErrors: Record<string, string> = {};
     const numQuestions = parseInt(questionCount);
     const numTime = parseInt(timeLimit);
 
+    if (!selectedDomain) {
+      newErrors.domain = 'Vui lòng chọn 1 Domain để luyện tập.';
+    }
+
     if (isNaN(numQuestions) || numQuestions <= 0) {
-      Alert.alert('Lỗi', 'Số lượng câu hỏi không hợp lệ.');
-      return;
+      newErrors.questionCount = 'Số lượng câu hỏi không hợp lệ.';
     }
 
     if (isNaN(numTime) || numTime <= 0) {
-      Alert.alert('Lỗi', 'Thời gian làm bài không hợp lệ.');
+      newErrors.timeLimit = 'Thời gian không hợp lệ.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    setErrors({});
 
     router.push({
       pathname: '/exam-screen',
@@ -37,7 +43,7 @@ export default function DomainPracticeModal() {
         mode: 'domain',
         questionCount: numQuestions,
         timeLimit: numTime,
-        selectedDomains: selectedDomain,
+        selectedDomains: selectedDomain!,
         excludeCorrect: excludeCorrect.toString()
       }
     });
@@ -48,28 +54,50 @@ export default function DomainPracticeModal() {
       <Text style={styles.headerTitle}>Luyện tập theo Domain</Text>
       <Text style={styles.subtitle}>Tập trung giải bài tập chuyên sâu theo từng Lĩnh vực.</Text>
 
-      <View style={styles.section}>
+      <View style={[styles.section, (errors.questionCount || errors.timeLimit) && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
         <Text style={styles.sectionTitle}>1. Thông số chung</Text>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Số lượng câu hỏi</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={questionCount} onChangeText={setQuestionCount} />
+          <Text style={[styles.label, errors.questionCount && { color: Theme.colors.error }]}>Số lượng câu hỏi</Text>
+          <TextInput 
+            style={[styles.input, errors.questionCount && styles.inputError]} 
+            keyboardType="number-pad" 
+            value={questionCount} 
+            onChangeText={(val) => {
+              setQuestionCount(val);
+              if (errors.questionCount) setErrors(prev => ({ ...prev, questionCount: '' }));
+            }} 
+          />
+          {errors.questionCount && <Text style={styles.errorText}>{errors.questionCount}</Text>}
         </View>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian (Phút)</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={timeLimit} onChangeText={setTimeLimit} />
+          <Text style={[styles.label, errors.timeLimit && { color: Theme.colors.error }]}>Thời gian (Phút)</Text>
+          <TextInput 
+            style={[styles.input, errors.timeLimit && styles.inputError]} 
+            keyboardType="number-pad" 
+            value={timeLimit} 
+            onChangeText={(val) => {
+              setTimeLimit(val);
+              if (errors.timeLimit) setErrors(prev => ({ ...prev, timeLimit: '' }));
+            }} 
+          />
+          {errors.timeLimit && <Text style={styles.errorText}>{errors.timeLimit}</Text>}
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Chọn 1 Lĩnh vực (Domain)</Text>
+      <View style={[styles.section, errors.domain && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
+        <Text style={[styles.sectionTitle, errors.domain && { color: Theme.colors.error }]}>2. Chọn 1 Lĩnh vực (Domain)</Text>
+        {errors.domain && <Text style={[styles.errorText, { marginBottom: 10 }]}>{errors.domain}</Text>}
         
         {pmpDomains.map(domain => {
           const isSelected = selectedDomain === domain;
           return (
             <TouchableOpacity 
               key={domain} 
-              style={[styles.itemCard, isSelected && styles.itemCardSelected]}
-              onPress={() => setSelectedDomain(domain)}
+              style={[styles.itemCard, isSelected && styles.itemCardSelected, errors.domain && !isSelected && { borderColor: 'rgba(238, 67, 67, 0.3)' }]}
+              onPress={() => {
+                setSelectedDomain(domain);
+                if (errors.domain) setErrors(prev => ({ ...prev, domain: '' }));
+              }}
               activeOpacity={0.7}
             >
               <Text style={[styles.itemText, isSelected && styles.itemTextSelected]}>{domain}</Text>
@@ -157,6 +185,16 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.s,
     padding: Theme.spacing.m,
     fontSize: Theme.typography.body.fontSize,
+  },
+  inputError: {
+    borderColor: Theme.colors.error,
+    backgroundColor: 'rgba(238, 67, 67, 0.05)',
+  },
+  errorText: {
+    color: Theme.colors.error,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
   },
   itemCard: {
     flexDirection: 'row',

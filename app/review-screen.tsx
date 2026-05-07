@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Theme } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { examStorage } from '../services/storage';
 import { CustomButton } from '../components/CustomButton';
+import { QuestionCard } from '../components/QuestionCard';
 
 export default function ReviewScreen() {
   const [examData, setExamData] = React.useState<any>(null);
@@ -62,46 +63,29 @@ export default function ReviewScreen() {
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.questionHeader}>
-          <Text style={styles.qNumber}>Câu {currentIndex + 1} / {questions.length}</Text>
           <View style={[styles.statusBadge, { backgroundColor: isCorrect ? 'rgba(38, 194, 129, 0.1)' : 'rgba(235, 77, 75, 0.1)' }]}>
             <Text style={[styles.statusText, { color: isCorrect ? Theme.colors.success : Theme.colors.error }]}>
-              {isCorrect ? 'Đúng' : 'Sai'}
+              {isCorrect ? 'ĐÚNG' : 'SAI'}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.questionText}>{currentQuestion.questionText}</Text>
-
-        <View style={styles.optionsContainer}>
-          {currentQuestion.options.map((option: any) => {
-            const isSelected = userAnswer.includes(option.id);
-            const isRightAnswer = currentQuestion.correctAnswers.includes(option.id);
-            
-            let borderColor = Theme.colors.border;
-            let bgColor = Theme.colors.surface;
-            
-            if (isRightAnswer) {
-              borderColor = Theme.colors.success;
-              bgColor = 'rgba(38, 194, 129, 0.05)';
-            } else if (isSelected && !isRightAnswer) {
-              borderColor = Theme.colors.error;
-              bgColor = 'rgba(235, 77, 75, 0.05)';
-            }
-
-            return (
-              <View key={option.id} style={[styles.optionBox, { borderColor, backgroundColor: bgColor }]}>
-                <View style={styles.optionHeader}>
-                   <Text style={[styles.optionId, isRightAnswer && { color: Theme.colors.success }, isSelected && !isRightAnswer && { color: Theme.colors.error }]}>
-                    {option.id}
-                  </Text>
-                  {isRightAnswer && <Ionicons name="checkmark-circle" size={20} color={Theme.colors.success} />}
-                  {isSelected && !isRightAnswer && <Ionicons name="close-circle" size={20} color={Theme.colors.error} />}
-                </View>
-                <Text style={styles.optionText}>{option.text}</Text>
-              </View>
-            );
-          })}
-        </View>
+        <QuestionCard 
+          key={currentQuestion.id}
+          questionId={currentQuestion.id}
+          questionNumber={currentIndex + 1}
+          totalQuestions={questions.length}
+          questionText={currentQuestion.questionText}
+          options={currentQuestion.options || []}
+          selectedOptionIds={userAnswer}
+          onSelectOption={() => {}} // Read-only in review
+          isMultipleChoice={currentQuestion.type === 'multiple' || currentQuestion.type === 'case_set'}
+          type={currentQuestion.type}
+          mediaUrl={currentQuestion.mediaUrl}
+          interactiveData={currentQuestion.interactiveData}
+          showAnswers={true}
+          correctAnswers={currentQuestion.correctAnswers}
+        />
 
         {/* Explanation Box */}
         <View style={styles.explanationBox}>
@@ -117,6 +101,8 @@ export default function ReviewScreen() {
           <Text style={styles.metaText}>Task: {currentQuestion.ecoTask}</Text>
         </View>
       </ScrollView>
+
+
 
       {/* Navigation Footer */}
       <View style={styles.footer}>
@@ -213,4 +199,78 @@ const styles = StyleSheet.create({
   },
   navBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   navBtnText: { fontSize: 16, fontWeight: 'bold', color: Theme.colors.primary },
+
+  // Note Button & Modal Styles
+  noteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  noteBtnText: {
+    color: Theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: Theme.spacing.l,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: Theme.borderRadius.l,
+    padding: Theme.spacing.l,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.m,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Theme.colors.text,
+  },
+  noteInput: {
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.m,
+    padding: Theme.spacing.m,
+    fontSize: 16,
+    color: Theme.colors.text,
+    backgroundColor: '#fafafa',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: Theme.spacing.l,
+  },
+  cancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: Theme.borderRadius.s,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  cancelBtnText: {
+    color: Theme.colors.textLight,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: Theme.borderRadius.s,
+    backgroundColor: Theme.colors.primary,
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+  }
 });

@@ -143,6 +143,22 @@ export default function AdminDashboardScreen() {
         />
 
         <ModeCard 
+          title="Quản lý Lớp học"
+          description="Tạo lớp học mới và phân bổ học viên vào các lớp."
+          iconName="school"
+          color={Theme.colors.warning}
+          onPress={() => router.push('/(admin)/classes')}
+        />
+
+        <ModeCard 
+          title="Giao Bài tập"
+          description="Tạo bài tập, thiết lập hạn chót và theo dõi kết quả nộp bài."
+          iconName="calendar"
+          color={Theme.colors.accent}
+          onPress={() => router.push('/(admin)/assignments')}
+        />
+
+        <ModeCard 
           title="Phân tích Điểm số"
           description="Xem biểu đồ thống kê Pass/Fail chung của toàn bộ trung tâm."
           iconName="pie-chart"

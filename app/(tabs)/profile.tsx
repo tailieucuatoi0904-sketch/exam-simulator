@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function ExploreTab() {
+export default function ProfileTab() {
   const user = auth.currentUser;
   const userEmail = user?.email || 'Học viên';
 
@@ -15,13 +15,9 @@ export default function ExploreTab() {
     const doLogout = async () => {
       try {
         await signOut(auth);
+        router.replace('/');
       } catch (e) {
         console.error(e);
-      }
-      if (Platform.OS === 'web') {
-        window.location.href = '/';
-      } else {
-        router.replace('/');
       }
     };
 

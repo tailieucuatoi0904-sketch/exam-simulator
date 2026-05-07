@@ -7,10 +7,18 @@ export const Theme = {
     error: '#EF233C', // Red for wrong answers
     warning: '#FFB703', // Yellow for Mark for Review
     
+    // Gradients
+    primaryGradient: ['#4361EE', '#3A0CA3'],
+    surfaceGradient: ['#FFFFFF', '#F8F9FA'],
+    
     // Backgrounds
     background: '#F8F9FA', // Light grey/white
     card: '#FFFFFF',
     surface: '#FFFFFF',
+    
+    // Glassmorphism
+    glass: 'rgba(255, 255, 255, 0.7)',
+    glassBorder: 'rgba(255, 255, 255, 0.3)',
     
     // Text
     text: '#2B2D42',
@@ -22,6 +30,7 @@ export const Theme = {
     
     // Shadows
     shadow: 'rgba(0, 0, 0, 0.08)',
+    premiumShadow: 'rgba(67, 97, 238, 0.15)',
   },
   spacing: {
     xs: 4,
@@ -39,12 +48,18 @@ export const Theme = {
     round: 9999,
   },
   typography: {
-    h1: { fontSize: 32, fontWeight: 'bold' },
-    h2: { fontSize: 24, fontWeight: 'bold' },
+    h1: { fontSize: 32, fontWeight: 'bold', letterSpacing: -0.5 },
+    h2: { fontSize: 24, fontWeight: 'bold', letterSpacing: -0.3 },
     h3: { fontSize: 20, fontWeight: '600' },
-    body: { fontSize: 16, fontWeight: 'normal' },
+    body: { fontSize: 16, fontWeight: 'normal', lineHeight: 24 },
     caption: { fontSize: 14, fontWeight: 'normal', color: '#8D99AE' },
   }
 };
 
+export const Fonts = {
+  rounded: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+  mono: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+};
+
+import { Platform } from 'react-native';
 export const Colors = Theme.colors;

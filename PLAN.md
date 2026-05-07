@@ -3,9 +3,11 @@
 Đây là tài liệu đặc tả nghiệp vụ đã được nâng cấp dựa trên cấu trúc đề thi PMI 2026, chuyển hướng từ một ứng dụng thi thử đơn thuần sang một **Hệ thống Ôn luyện PMP toàn diện**.
 
 ## Thông tin Triển khai
+- **Hoàn thành:** 100% (Core features)
 - **Hosting:** https://pmp-exam-simulator-7d8dd.web.app
 - **GitHub:** https://github.com/tailieucuatoi0904-sketch/exam-simulator
 - **Firebase Project:** `pmp-exam-simulator-7d8dd`
+- **Cập nhật lần cuối:** 06/05/2026
 - **Tech Stack:** React Native (Expo Router) + Firebase Realtime Database + Firebase Auth
 - **Trạng thái:** ✅ Đã triển khai Production — Đang vận hành
 
@@ -30,6 +32,13 @@
 - Thống kê chi tiết: số bài thi, câu đúng, câu chinh phục thành công
 - Đồng bộ dữ liệu real-time từ Firebase Cloud
 
+### 1.4. Quản lý Bài tập (Assignment Management) ✅
+- **Tạo bài tập**: 4 chế độ (Ngẫu nhiên, Chọn tay, Excel, Thủ công)
+- **Sửa bài tập**: Sửa thông tin chung (Lớp, Deadline, Tiêu đề)
+- **Sửa từng câu**: Can thiệp sâu vào nội dung từng câu hỏi trong bài tập đã giao
+- **Hỗ trợ hình ảnh**: Đính kèm ảnh (Base64) cho TẤT CẢ các loại câu hỏi (Single, Multiple, Fill Blank, Hotspot)
+- **Xóa bài tập**: Xóa bài tập khỏi hệ thống có xác nhận an toàn
+
 ---
 
 ## 2. Phân hệ Học viên (Student Role) ✅
@@ -43,7 +52,7 @@
 - Hiển thị danh sách ECO Tasks phân nhóm theo Domain (Accordion)
 - Tìm kiếm ECO Task theo tên
 - Hỗ trợ cả 3 Domain: People, Process, **Business Environment** (case-insensitive)
-- Tùy biến: Số lượng câu hỏi + Thời gian làm bài
+- Tù biến: Số lượng câu hỏi + Thời gian làm bài
 
 ### 2.3. Tạo Đề thi Tùy chỉnh (Custom Mock Exam)
 - Số lượng câu hỏi: Tùy chọn (tối đa toàn bộ kho)
@@ -81,7 +90,7 @@
 | Source Control | GitHub |
 
 ### Cấu trúc dữ liệu chính
-- **Câu hỏi:** `{ id, domain, ecoTask, questionText, options[], correctAnswers[], explanation, type }`
+- **Câu hỏi:** `{ id, domain, ecoTask, questionText, options[], correctAnswers[], explanation, type, mediaUrl }`
 - **Lịch sử thi:** `{ examId, userId, score, answers[], timestamp, mode }`
 - **Câu sai:** `{ questionId, userId, wrongCount }`
 - **Câu đúng:** `{ questionId, userId }`
@@ -114,7 +123,9 @@
 ---
 
 ## 5. Công việc còn lại (TODO)
-- [ ] Kiểm thử lỗi toàn diện trên nhiều trình duyệt (Chrome, Firefox, Safari)
-- [ ] Tối ưu hiệu năng cho danh sách câu hỏi lớn (>1000 câu)
+- [x] Kiểm thử lỗi toàn diện trên nhiều trình duyệt (Chrome, Firefox, Safari)
+- [x] Tối ưu hiệu năng cho danh sách câu hỏi lớn (>1000 câu)
+- [x] Tính năng Sửa/Xóa bài tập đã giao (Assignment CRUD)
+- [x] Hỗ trợ hình ảnh Base64 cho mọi loại câu hỏi
 - [ ] Tính năng Retake bài thi (tối đa 5 lần/đề)
 - [ ] Đóng gói ứng dụng cho iOS/Android (nếu cần)

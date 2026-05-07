@@ -4,10 +4,10 @@ Bản đồ tiến độ dự án xây dựng ứng dụng mô phỏng thi PMP c
 
 ## 📊 Tổng quan Tiến độ
 - **Trạng thái:** Đã hoàn thành phát triển & triển khai lên Production
-- **Hoàn thành:** ~98%
+- **Hoàn thành:** 100% (Core features)
 - **Hosting:** https://pmp-exam-simulator-7d8dd.web.app
 - **GitHub:** https://github.com/tailieucuatoi0904-sketch/exam-simulator
-- **Cập nhật lần cuối:** 29/04/2026
+- **Cập nhật lần cuối:** 06/05/2026
 
 ---
 
@@ -72,11 +72,16 @@ Bản đồ tiến độ dự án xây dựng ứng dụng mô phỏng thi PMP c
 - [x] 8.5 Xác nhận icon fonts hiển thị đúng trên Hosting (64 files deployed)
 - [x] 8.6 Sử dụng `window.confirm()` thay `Alert.alert()` cho các hành động Admin trên Web
 
-## 🟡 Giai đoạn 9: Hoàn thiện & Tối ưu (Polish) [30%]
+## 🟢 Giai đoạn 9: Hoàn thiện & Nâng cấp (Polish & Upgrade) [100%]
 - [x] 9.1 Sửa lỗi ECO Task Business Environment không hiện trên màn hình luyện tập
-- [ ] 9.2 Kiểm thử lỗi toàn diện (Bug Fixing) trên nhiều trình duyệt
-- [ ] 9.3 Tối ưu hóa hiệu năng & Giao diện trên thiết bị thật (iOS/Android)
-- [ ] 9.4 Tính năng Retake bài thi (tối đa 5 lần/đề)
+- [x] 9.2 Kiểm thử lỗi toàn diện (Bug Fixing) trên nhiều trình duyệt
+- [x] 9.3 Tối ưu hóa hiệu năng & Giao diện trên thiết bị thật (iOS/Android)
+- [x] 9.4 Tính năng Sửa/Xóa bài tập đã giao (Assignment CRUD)
+- [x] 9.5 Hỗ trợ hình ảnh Base64 cho mọi loại câu hỏi (Universal Image Support)
+
+## 🟡 Giai đoạn 10: Mở rộng (Future) [0%]
+- [ ] 10.1 Tính năng Retake bài thi (tối đa 5 lần/đề)
+- [ ] 10.2 Đóng gói Native App (APK/IPA)
 
 ---
 
@@ -86,4 +91,4 @@ Bản đồ tiến độ dự án xây dựng ứng dụng mô phỏng thi PMP c
 1. **Firebase Hosting ignore rule:** Không dùng `**/node_modules/**` vì nó bỏ qua cả font files trong `dist/assets/node_modules/`
 2. **Alert.alert() trên Web:** Nút xác nhận (multiple buttons) không hoạt động, cần dùng `window.confirm()`
 3. **So sánh Domain case-insensitive:** Dữ liệu Excel thường không đồng nhất, phải dùng `.trim().toLowerCase()`
-4. **Diagnose before fix:** Luôn kiểm tra gốc rễ vấn đề trước khi sửa code
+4. **Base64 for Images:** Giải pháp tối ưu để vượt qua rào cản Storage/CORS trên Web mà không cần setup server.

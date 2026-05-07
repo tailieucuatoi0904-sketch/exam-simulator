@@ -11,6 +11,7 @@ export default function EcoTaskPracticeModal() {
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState('');
   const [timeLimit, setTimeLimit] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [excludeCorrect, setExcludeCorrect] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedDomain, setExpandedDomain] = useState<string | null>('People');
@@ -55,23 +56,28 @@ export default function EcoTaskPracticeModal() {
   }, []);
 
   const handleStartExam = () => {
-    if (!selectedTask) {
-      Alert.alert('Lỗi', 'Vui lòng chọn 1 ECO Task để luyện tập.');
-      return;
-    }
-
+    const newErrors: Record<string, string> = {};
     const numQuestions = parseInt(questionCount);
     const numTime = parseInt(timeLimit);
 
+    if (!selectedTask) {
+      newErrors.task = 'Vui lòng chọn 1 ECO Task để luyện tập.';
+    }
+
     if (isNaN(numQuestions) || numQuestions <= 0) {
-      Alert.alert('Lỗi', 'Số lượng câu hỏi không hợp lệ.');
-      return;
+      newErrors.questionCount = 'Số lượng câu hỏi không hợp lệ.';
     }
 
     if (isNaN(numTime) || numTime <= 0) {
-      Alert.alert('Lỗi', 'Thời gian làm bài không hợp lệ.');
+      newErrors.timeLimit = 'Thời gian không hợp lệ.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    setErrors({});
 
     router.push({
       pathname: '/exam-screen',
@@ -79,7 +85,7 @@ export default function EcoTaskPracticeModal() {
         mode: 'eco',
         questionCount: numQuestions,
         timeLimit: numTime,
-        selectedEcoTask: selectedTask,
+        selectedEcoTask: selectedTask!,
         excludeCorrect: excludeCorrect.toString()
       }
     });
@@ -90,20 +96,41 @@ export default function EcoTaskPracticeModal() {
       <Text style={styles.headerTitle}>Luyện tập theo ECO Task</Text>
       <Text style={styles.subtitle}>Khắc phục điểm yếu theo từng Task chuẩn PMI 2026.</Text>
 
-      <View style={styles.section}>
+      <View style={[styles.section, (errors.questionCount || errors.timeLimit) && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
         <Text style={styles.sectionTitle}>1. Thông số chung</Text>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Số lượng câu hỏi</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={questionCount} onChangeText={setQuestionCount} placeholder="Ví dụ: 10" />
+          <Text style={[styles.label, errors.questionCount && { color: Theme.colors.error }]}>Số lượng câu hỏi</Text>
+          <TextInput 
+            style={[styles.input, errors.questionCount && styles.inputError]} 
+            keyboardType="number-pad" 
+            value={questionCount} 
+            onChangeText={(val) => {
+              setQuestionCount(val);
+              if (errors.questionCount) setErrors(prev => ({ ...prev, questionCount: '' }));
+            }} 
+            placeholder="Ví dụ: 10" 
+          />
+          {errors.questionCount && <Text style={styles.errorText}>{errors.questionCount}</Text>}
         </View>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian (Phút)</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={timeLimit} onChangeText={setTimeLimit} placeholder="Ví dụ: 15" />
+          <Text style={[styles.label, errors.timeLimit && { color: Theme.colors.error }]}>Thời gian (Phút)</Text>
+          <TextInput 
+            style={[styles.input, errors.timeLimit && styles.inputError]} 
+            keyboardType="number-pad" 
+            value={timeLimit} 
+            onChangeText={(val) => {
+              setTimeLimit(val);
+              if (errors.timeLimit) setErrors(prev => ({ ...prev, timeLimit: '' }));
+            }} 
+            placeholder="Ví dụ: 15" 
+          />
+          {errors.timeLimit && <Text style={styles.errorText}>{errors.timeLimit}</Text>}
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Chọn 1 ECO Task</Text>
+      <View style={[styles.section, errors.task && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
+        <Text style={[styles.sectionTitle, { color: Theme.colors.success }, errors.task && { color: Theme.colors.error }]}>2. Chọn 1 ECO Task</Text>
+        {errors.task && <Text style={[styles.errorText, { marginBottom: 10 }]}>{errors.task}</Text>}
         
         {/* Thanh tìm kiếm Task */}
         <View style={styles.searchBox}>
@@ -146,7 +173,10 @@ export default function EcoTaskPracticeModal() {
                         <TouchableOpacity 
                           key={task} 
                           style={[styles.taskItem, isSelected && styles.taskItemSelected]}
-                          onPress={() => setSelectedTask(task)}
+                          onPress={() => {
+                            setSelectedTask(task);
+                            if (errors.task) setErrors(prev => ({ ...prev, task: '' }));
+                          }}
                         >
                           <Text style={[styles.taskText, isSelected && styles.taskTextSelected]} numberOfLines={2}>
                             {task}
@@ -247,6 +277,16 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.s,
     padding: Theme.spacing.m,
     fontSize: Theme.typography.body.fontSize,
+  },
+  inputError: {
+    borderColor: Theme.colors.error,
+    backgroundColor: 'rgba(238, 67, 67, 0.05)',
+  },
+  errorText: {
+    color: Theme.colors.error,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
   },
   itemTextSelected: {
     color: Theme.colors.success,

@@ -14,6 +14,7 @@ export default function QuizBuilderModal() {
   const [selectedDomains, setSelectedDomains] = useState<Record<string, boolean>>(
     pmpDomains.reduce((acc, domain) => ({ ...acc, [domain]: true }), {})
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [excludeCorrect, setExcludeCorrect] = useState(false);
   const [poolSize, setPoolSize] = useState(230); // Default fallback
 
@@ -33,24 +34,32 @@ export default function QuizBuilderModal() {
   };
 
   const handleStartExam = () => {
+    const newErrors: Record<string, string> = {};
     const numQuestions = parseInt(questionCount);
     const numTime = parseInt(timeLimit);
 
-    if (isNaN(numQuestions) || numQuestions <= 0 || numQuestions > poolSize) {
-      Alert.alert('Lỗi', `Số lượng câu hỏi phải từ 1 đến ${poolSize}.`);
-      return;
+    if (isNaN(numQuestions) || numQuestions <= 0) {
+      newErrors.questionCount = 'Vui lòng nhập số lượng câu hỏi hợp lệ.';
+    } else if (numQuestions > poolSize) {
+      newErrors.questionCount = `Số lượng câu hỏi tối đa là ${poolSize}.`;
     }
 
     if (isNaN(numTime) || numTime <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập thời gian làm bài hợp lệ.');
-      return;
+      newErrors.timeLimit = 'Vui lòng nhập thời gian làm bài (phút).';
     }
 
     const hasSelectedDomain = Object.values(selectedDomains).some(v => v);
     if (!hasSelectedDomain) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một Domain.');
+      newErrors.domains = 'Vui lòng chọn ít nhất một Domain.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      Alert.alert('Thiếu thông tin', 'Vui lòng kiểm tra lại các trường thông tin màu đỏ.');
       return;
     }
+
+    setErrors({});
 
     // Chuyển sang màn hình thi thực tế
     router.push({
@@ -71,35 +80,48 @@ export default function QuizBuilderModal() {
       <Text style={styles.subtitle}>Cấu hình bài test theo nhu cầu ôn tập của bạn.</Text>
 
       {/* Cấu hình số lượng & thời gian */}
-      <View style={styles.section}>
+      <View style={[styles.section, (errors.questionCount || errors.timeLimit) && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
         <Text style={styles.sectionTitle}>1. Thông số chung</Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Số lượng câu hỏi (Tối đa {poolSize})</Text>
+          <Text style={[styles.label, errors.questionCount && { color: Theme.colors.error }]}>
+            Số lượng câu hỏi (Tối đa {poolSize})
+          </Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.questionCount && styles.inputError]}
             keyboardType="number-pad"
             value={questionCount}
-            onChangeText={setQuestionCount}
+            onChangeText={(val) => {
+              setQuestionCount(val);
+              if (errors.questionCount) setErrors(prev => ({ ...prev, questionCount: '' }));
+            }}
             placeholder="Ví dụ: 50"
           />
+          {errors.questionCount && <Text style={styles.errorText}>{errors.questionCount}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian làm bài (Phút)</Text>
+          <Text style={[styles.label, errors.timeLimit && { color: Theme.colors.error }]}>
+            Thời gian làm bài (Phút)
+          </Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.timeLimit && styles.inputError]}
             keyboardType="number-pad"
             value={timeLimit}
-            onChangeText={setTimeLimit}
+            onChangeText={(val) => {
+              setTimeLimit(val);
+              if (errors.timeLimit) setErrors(prev => ({ ...prev, timeLimit: '' }));
+            }}
             placeholder="Ví dụ: 60"
           />
+          {errors.timeLimit && <Text style={styles.errorText}>{errors.timeLimit}</Text>}
         </View>
       </View>
 
       {/* Lựa chọn Domain */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Chọn Lĩnh vực (Domain)</Text>
+      <View style={[styles.section, errors.domains && { borderColor: Theme.colors.error, borderWidth: 1 }]}>
+        <Text style={[styles.sectionTitle, errors.domains && { color: Theme.colors.error }]}>2. Chọn Lĩnh vực (Domain)</Text>
+        {errors.domains && <Text style={[styles.errorText, { marginBottom: 10 }]}>{errors.domains}</Text>}
         <Text style={styles.note}>*Tỷ lệ trộn chuẩn: People (33%), Process (41%), Business Environment (26%)</Text>
         
         {pmpDomains.map(domain => (
@@ -193,6 +215,16 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.s,
     padding: Theme.spacing.m,
     fontSize: Theme.typography.body.fontSize,
+  },
+  inputError: {
+    borderColor: Theme.colors.error,
+    backgroundColor: 'rgba(238, 67, 67, 0.05)',
+  },
+  errorText: {
+    color: Theme.colors.error,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
   },
   note: {
     fontSize: Theme.typography.caption.fontSize,
